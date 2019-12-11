@@ -6,69 +6,49 @@
 /*   By: dphyliss <admin@21-school.ru>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2019/11/30 20:45:56 by dphyliss          #+#    #+#             */
-/*   Updated: 2019/11/30 20:51:58 by dphyliss         ###   ########.fr       */
+/*   Updated: 2019/12/11 15:20:28 by dphyliss         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "fdf.h"
+# include <stdio.h>
+# include <math.h>
+# include "mlx.h"
+# include "libft/libft.h"
 
-void	start_pos(t_screen *const screen)
-{
-	screen->map.scale_x = 30;
-	screen->map.scale_y = -30;
-	screen->map.pos_x = 400;
-	screen->map.pos_y = 400;
-	screen->map.alpha = 0;
-	screen->map.beta = 0;
-	screen->map.gamma = 0;
-	screen->map.alt = 1;
-}
+# define WIN_X 1000
+# define WIN_Y 1000
 
-void	iso_abg(const int keycode, t_screen *const screen)
+typedef	struct	s_point
 {
-	if (keycode == 18)
-		screen->map.alpha -= 0.05;
-	else if (keycode == 19)
-		screen->map.alpha += 0.05;
-	else if (keycode == 20)
-		screen->map.beta -= 0.05;
-	else if (keycode == 21)
-		screen->map.beta += 0.05;
-	else if (keycode == 23)
-		screen->map.gamma -= 0.05;
-	else if (keycode == 22)
-		screen->map.gamma += 0.05;
-	else if (keycode == 34)
-		screen->map.info = (screen->map.info) ? 0 : 1;
-	else if (keycode == 49)
-		start_pos(screen);
-}
+	int			x;
+	int			y;
+}				t_point;
 
-int		key_hook(const	int keycode, t_screen *const screen)
+typedef	struct	s_image
 {
-	if (keycode == 53)
-		exit(0);
-	iso_abg(keycode, screen);
-	if (keycode == 124)
-		screen->map.pos_x += 30;
-	else if (keycode == 125)
-		screen->map.pos_y += 30;
-	else if (keycode == 123)
-		screen->map.pos_x -= 30;
-	else if (keycode == 126)
-		screen->map.pos_y -= 30;
-	else if (keycode == 13)
-	{
-		screen->map.alt += 1;
-		apply_height(screen, 1);
-	}
-	else if (keycode == 1)
-	{
-		screen->map.alt -= 1;
-		apply_height(screen, -1);
-	}
-	print_screen(screen);
-	return (1);
+	int			*ptr;
+	int			*data;
+	int			bpp;
+	int			size_line;
+	int			endian;
+}				t_image;
+
+typedef	struct	s_screen
+{
+	void		*mlx_ptr;
+	void		*win_ptr;
+	int			height;
+	int			width;
+	t_image		image;
+}				t_screen;
+
+t_complex init_complex(double re, double im)
+{
+	t_complex complex;
+
+	complex.re = re;
+	complex.im = im;
+	return (complex);
 }
 
 void	init(t_screen *const screen)
@@ -78,19 +58,8 @@ void	init(t_screen *const screen)
 	if (!(screen->win_ptr = mlx_new_window(screen->mlx_ptr,
 					WIN_X, WIN_Y, "asdf")))
 		ft_exit("Error: mlx_new_window failed.\n");
-	screen->map.scale_x = 30;
-	screen->map.scale_y = -30;
-	screen->map.pos_x = 400;
-	screen->map.pos_y = 400;
-	screen->map.alpha = 0;
-	screen->map.beta = 0;
-	screen->map.gamma = 0;
-	screen->map.info = 0;
-	screen->map.alt = 1;
-	screen->map.color = 0x000000;
 	if (!(screen->image.ptr = mlx_new_image(screen->mlx_ptr, WIN_X, WIN_Y)))
 		ft_exit("Error: mls_new_image failed.\n");
-	apply_proj(screen);
 	if (!(screen->image.data = (int *)mlx_get_data_addr(screen->image.ptr,
 		&screen->image.bpp, &screen->image.size_line, &screen->image.endian)))
 		ft_exit("Error: mls_new_image failed.\n");
@@ -106,14 +75,45 @@ int		main(int ac, char **av)
 	if (!(screen = (t_screen *)malloc(sizeof(t_screen))))
 		ft_exit("Error: the memory hasn't been allocated.\n");
 	init(screen);
-	if (((fd = open(av[1], O_RDONLY)) == -1))
-		ft_exit("Error: Map is invalid.\n");
-	if (!(screen->map.data = (t_point **)ft_memalloc(sizeof(t_point *) * 1000)))
-		ft_exit("Error: the memory hasn't been allocated.\n");
-	read_file(screen, fd);
-	close(fd);
-	recalc_scale(screen);
-	print_screen(screen);
+
+	min.re = -2.0;
+	max.re = 2.0;
+	min.im = -2.0;
+	max.im = min.im + (max.re - min.re) * HEIGHT / WIDTH;
+
+	factor.re = (max.re - min.re) / (WIDTH - 1);
+	factor.im = (max.im - min.im) / (HEIGHT - 1);
+
+	max_iteration = 50;
+	y = 0;
+	while (y < WIN_Y)
+	{
+		c.im = max.im - y * factor.im;
+		x = 0;
+		while (x < WIN_X)
+		{
+			c.re = min.re + x * factor.re;
+			z = init_complex(c.re, c.im);
+			iteration = 0;
+			while (pow(z.re, 2.0) + pow(z.im, 2.0) <= 4
+					&& iteration < max_iteration)
+			{
+				z = init_complex(
+						pow(z.re, 2.0) - pow(z.im, 2.0) + c.re,
+						2.0 * z.re * z.im + c.im);
+				iteration++;
+			}
+			t = (double)iteration / (double)max_iteration;
+
+			red = (int)(9 * (1 - t) * pow(t, 3) * 255);
+			green = (int)(15 * pow((1 - t), 2) * pow(t, 2) * 255);
+			blue = (int)(8.5 * pow((1 - t), 3) * t * 255);
+			//Установка цвета точки
+			x++;
+		}
+		y++;
+	}
+
 	mlx_hook(screen->win_ptr, 2, 0, key_hook, screen);
 	mlx_hook(screen->win_ptr, 4, 0, mouse_hook, screen);
 	mlx_loop(screen->mlx_ptr);
