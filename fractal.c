@@ -6,7 +6,7 @@
 /*   By: dphyliss <admin@21-school.ru>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2019/11/30 20:45:56 by dphyliss          #+#    #+#             */
-/*   Updated: 2019/12/11 19:08:57 by dphyliss         ###   ########.fr       */
+/*   Updated: 2019/12/16 13:49:18 by dphyliss         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -41,6 +41,20 @@ typedef	struct	s_image
 	int			endian;
 }				t_image;
 
+typedef struct	s_fractal
+{
+	int			red;
+	int			green;
+	int			blue;
+	double		t;
+	int			max_iteration;
+	t_compl		min;
+	t_compl		max;
+	t_compl		factor;
+	t_compl		c;
+	t_compl		z;
+}				t_fractal;
+
 typedef	struct	s_screen
 {
 	void		*mlx_ptr;
@@ -48,6 +62,7 @@ typedef	struct	s_screen
 	int			height;
 	int			width;
 	t_image		image;
+	t_fractal	fractal;
 }				t_screen;
 
 void		ft_putstr_fd(char const *s, int fd)
@@ -94,12 +109,79 @@ void	init(t_screen *const screen)
 	if (!(screen->image.data = (int *)mlx_get_data_addr(screen->image.ptr,
 		&screen->image.bpp, &screen->image.size_line, &screen->image.endian)))
 		ft_exit("Error: mls_new_image failed.\n");
+	screen->fractal.min.re = -2.0;
+	screen->fractal.max.re = 2.0;
+	screen->fractal.min.im = -2.0;
+	screen->fractal.max.im = screen->fractal.min.im +
+		(screen->fractal.max.re - screen->fractal.min.re) * WIN_Y / WIN_X;
+
+	screen->fractal.factor.re = (screen->fractal.max.re -
+			screen->fractal.min.re) / (WIN_X - 1);
+	screen->fractal.factor.im = (screen->fractal.max.im -
+			screen->fractal.min.im) / (WIN_Y - 1);
+	screen->fractal.max_iteration = 2;
 }
 
-int     key_hook(const  int keycode, t_screen *const screen)
+
+void print_fractal(t_screen * const screen)
+{
+	int			iteration;
+	int			x;
+	int			y;
+	
+	y = 0;
+	while (y < WIN_Y)
+	{
+		screen->fractal.c.im = screen->fractal.max.im - y *
+			screen->fractal.factor.im;
+		x = 0;
+		while (x < WIN_X)
+		{
+			screen->fractal.c.re = screen->fractal.min.re + x *
+				screen->fractal.factor.re ;
+			screen->fractal.z = init_compl(screen->fractal.c.re,
+					screen->fractal.c.im);
+			iteration = 0;
+			while (pow(screen->fractal.z.re, 2.0) +
+					pow(screen->fractal.z.im, 2.0) <= 4
+					&& iteration < screen->fractal.max_iteration)
+			{
+				screen->fractal.z = init_compl(
+						pow(screen->fractal.z.re, 2.0) -
+						pow(screen->fractal.z.im, 2.0) + screen->fractal.c.re,
+						2.0 * screen->fractal.z.re * screen->fractal.z.im +
+						screen->fractal.c.im);
+				iteration++;
+			}
+			screen->fractal.t = (double)iteration /
+				(double)screen->fractal.max_iteration;
+
+			screen->fractal.red = (int)(9 * (1 - screen->fractal.t) *
+					pow(screen->fractal.t, 3) * 255);
+			screen->fractal.green = (int)(15 * pow((1 - screen->fractal.t), 2) *
+					pow(screen->fractal.t, 2) * 255);
+			screen->fractal.blue = (int)(8.5 * pow((1 - screen->fractal.t), 3) *
+					screen->fractal.t * 255);
+			//Установка цвета точки
+			screen->image.data[WIN_X * y + x] = screen->fractal.red *
+				screen->fractal.green * screen->fractal.blue;
+			x++;
+		}
+		y++;
+	}
+	mlx_put_image_to_window(screen->mlx_ptr, screen->win_ptr,
+						screen->image.ptr, 0, 0);
+}
+
+int     key_hook(const  int keycode, t_screen * const screen)
 {
 	if (keycode == 53)
 		exit(0);
+	else
+	{
+		screen->fractal.max_iteration += 1;
+		print_fractal(screen);
+	}
 	return (1);
 }
 
@@ -107,66 +189,16 @@ int		main(int ac, char **av)
 {
 	t_screen	*screen;
 	int			fd;
-	int			x;
-	int			y;
-	int			red;
-	int			green;
-	int			blue;
-	int			max_iteration;
-	int			iteration;
-	double		t;
-	t_compl min;
-	t_compl max;
-	t_compl factor;
-	t_compl c;
-	t_compl z;
 
 //	if (2 != ac)
 //		ft_exit("1");
 	if (!(screen = (t_screen *)malloc(sizeof(t_screen))))
 		ft_exit("Error: the memory hasn't been allocated.\n");
 	init(screen);
+	print_fractal(screen);
 	
-	min.re = -2.0;
-	max.re = 2.0;
-	min.im = -2.0;
-	max.im = min.im + (max.re - min.re) * WIN_Y / WIN_X;
 
-	factor.re = (max.re - min.re) / (WIN_X - 1);
-	factor.im = (max.im - min.im) / (WIN_Y - 1);
-
-	max_iteration = 113;
-	y = 0;
-	while (y < WIN_Y)
-	{
-		c.im = max.im - y * factor.im;
-		x = 0;
-		while (x < WIN_X)
-		{
-			c.re = min.re + x * factor.re;
-			z = init_compl(c.re, c.im);
-			iteration = 0;
-			while (pow(z.re, 2.0) + pow(z.im, 2.0) <= 4
-					&& iteration < max_iteration)
-			{
-				z = init_compl(
-						pow(z.re, 2.0) - pow(z.im, 2.0) + c.re,
-						2.0 * z.re * z.im + c.im);
-				iteration++;
-			}
-			t = (double)iteration / (double)max_iteration;
-
-			red = (int)(9 * (1 - t) * pow(t, 3) * 255);
-			green = (int)(15 * pow((1 - t), 2) * pow(t, 2) * 255);
-			blue = (int)(8.5 * pow((1 - t), 3) * t * 255);
-			//Установка цвета точки
-			screen->image.data[WIN_X * y + x] = red * green * blue;
-			x++;
-		}
-		y++;
-	}
-	mlx_put_image_to_window(screen->mlx_ptr, screen->win_ptr,
-						screen->image.ptr, 0, 0);
+	
 	mlx_hook(screen->win_ptr, 2, 0, key_hook, screen);
 //	mlx_hook(screen->win_ptr, 4, 0, mouse_hook, screen);
 	mlx_loop(screen->mlx_ptr);
