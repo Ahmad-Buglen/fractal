@@ -6,7 +6,7 @@
 /*   By: dphyliss <admin@21-school.ru>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2019/11/30 20:45:56 by dphyliss          #+#    #+#             */
-/*   Updated: 2019/12/16 13:49:18 by dphyliss         ###   ########.fr       */
+/*   Updated: 2019/12/20 20:26:09 by dphyliss         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -119,7 +119,7 @@ void	init(t_screen *const screen)
 			screen->fractal.min.re) / (WIN_X - 1);
 	screen->fractal.factor.im = (screen->fractal.max.im -
 			screen->fractal.min.im) / (WIN_Y - 1);
-	screen->fractal.max_iteration = 2;
+	screen->fractal.max_iteration = 50;
 }
 
 
@@ -175,11 +175,17 @@ void print_fractal(t_screen * const screen)
 
 int     key_hook(const  int keycode, t_screen * const screen)
 {
-	if (keycode == 53)
+	//printf("keycode = %d\n", keycode);
+	if (53 == keycode)
 		exit(0);
-	else
+	else if (69 == keycode)
 	{
 		screen->fractal.max_iteration += 1;
+		print_fractal(screen);
+	}
+	else if (78 == keycode)
+	{
+		screen->fractal.max_iteration -= 1;
 		print_fractal(screen);
 	}
 	return (1);
