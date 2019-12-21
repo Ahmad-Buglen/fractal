@@ -6,7 +6,7 @@
 /*   By: dphyliss <admin@21-school.ru>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2019/11/30 20:45:56 by dphyliss          #+#    #+#             */
-/*   Updated: 2019/12/20 20:26:09 by dphyliss         ###   ########.fr       */
+/*   Updated: 2019/12/21 19:09:26 by dphyliss         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -17,8 +17,8 @@
 # include "mlx.h"
 //# include "libft/libft.h"
 
-# define WIN_X 1300
-# define WIN_Y 1300
+# define WIN_X 1000
+# define WIN_Y 1000
 
 typedef	struct	s_point
 {
@@ -119,7 +119,7 @@ void	init(t_screen *const screen)
 			screen->fractal.min.re) / (WIN_X - 1);
 	screen->fractal.factor.im = (screen->fractal.max.im -
 			screen->fractal.min.im) / (WIN_Y - 1);
-	screen->fractal.max_iteration = 50;
+	screen->fractal.max_iteration = 13;
 }
 
 
@@ -173,6 +173,44 @@ void print_fractal(t_screen * const screen)
 						screen->image.ptr, 0, 0);
 }
 
+double	interpolate(double start, double end, double interpolation)
+{
+	return (start + ((end - start) * interpolation));
+}
+
+int		mouse_hook(const  int keycode, int x, int y,	t_screen * const screen)
+{
+	t_compl		mouse;
+	double		interpolation;
+	double		zoom;
+
+	if (keycode == 4 || keycode == 5)
+	{
+		mouse = init_compl(
+			(double)x / (WIN_X /
+				(screen->fractal.max.re - screen->fractal.min.re))
+				+ screen->fractal.min.re,
+			(double)y /
+			(WIN_Y / (screen->fractal.max.im - screen->fractal.min.im))
+				* -1 + screen->fractal.max.im);
+		if (keycode == 4)
+			zoom = 0.80;
+		else
+			zoom = 1.20;
+		interpolation = 1.0 / zoom;
+		screen->fractal.min.re =
+			interpolate(mouse.re, screen->fractal.min.re, interpolation);
+		screen->fractal.min.im =
+			interpolate(mouse.im, screen->fractal.min.im, interpolation);
+		screen->fractal.max.re =
+			interpolate(mouse.re, screen->fractal.max.re, interpolation);
+		screen->fractal.max.im =
+			interpolate(mouse.im, screen->fractal.max.im, interpolation);
+		print_fractal(screen);
+	}
+	return (1);
+}
+
 int     key_hook(const  int keycode, t_screen * const screen)
 {
 	//printf("keycode = %d\n", keycode);
@@ -206,7 +244,7 @@ int		main(int ac, char **av)
 
 	
 	mlx_hook(screen->win_ptr, 2, 0, key_hook, screen);
-//	mlx_hook(screen->win_ptr, 4, 0, mouse_hook, screen);
+	mlx_hook(screen->win_ptr, 4, 0, mouse_hook, screen);
 	mlx_loop(screen->mlx_ptr);
 	return (1);
 }
