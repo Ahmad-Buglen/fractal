@@ -169,6 +169,7 @@ int		init_cl(t_screen *s)
 {
 	char	buf[10000];
 	int ret;
+	cl_int cl_ret;
 	char *src;
 
 	if ((ret = clGetPlatformIDs(0, 0, &s->opcl.pltf_num)) != CL_SUCCESS)
@@ -215,35 +216,39 @@ int		init_cl(t_screen *s)
 
 	s->opcl.total_s = WIN_X * WIN_Y;
 	s->opcl.local_s = 250;
-
-	ret = clSetKernelArg(s->opcl.kernel,
+//	ft_putstr("where");
+	cl_ret = clSetKernelArg(s->opcl.kernel,
 			0, sizeof(cl_mem), &s->image.data);
-	ret |= clSetKernelArg(s->opcl.kernel,
-			1, sizeof(double), &s->fractal.max.re);
-	ret |= clSetKernelArg(s->opcl.kernel,
-			2, sizeof(double), &s->fractal.max.im);
-	ret |= clSetKernelArg(s->opcl.kernel,
-			3, sizeof(double), &s->fractal.min.re);
-	ret |= clSetKernelArg(s->opcl.kernel,
-			4, sizeof(double), &s->fractal.min.im);
-	ret |= clSetKernelArg(s->opcl.kernel,
-			5, sizeof(double), &s->fractal.c.re);
-	ret |= clSetKernelArg(s->opcl.kernel,
-			6, sizeof(double), &s->fractal.c.im);
-	ret |= clSetKernelArg(s->opcl.kernel,
-			7, sizeof(double), &s->fractal.z.re);
-	ret |= clSetKernelArg(s->opcl.kernel,
-			8, sizeof(double), &s->fractal.z.im);
-	ret |= clSetKernelArg(s->opcl.kernel, 9, sizeof(int), &s->fractal.max_iteration);
+	ft_putstr("where");
 
-	if (ret != CL_SUCCESS)
+	cl_ret |= clSetKernelArg(s->opcl.kernel,
+			1, sizeof(double), &s->fractal.max.re);
+	cl_ret |= clSetKernelArg(s->opcl.kernel,
+			2, sizeof(double), &s->fractal.max.im);
+	cl_ret |= clSetKernelArg(s->opcl.kernel,
+			3, sizeof(double), &s->fractal.min.re);
+	cl_ret |= clSetKernelArg(s->opcl.kernel,
+			4, sizeof(double), &s->fractal.min.im);
+	cl_ret |= clSetKernelArg(s->opcl.kernel,
+			5, sizeof(double), &s->fractal.c.re);
+	cl_ret |= clSetKernelArg(s->opcl.kernel,
+			6, sizeof(double), &s->fractal.c.im);
+	cl_ret |= clSetKernelArg(s->opcl.kernel,
+			7, sizeof(double), &s->fractal.z.re);
+	cl_ret |= clSetKernelArg(s->opcl.kernel,
+			8, sizeof(double), &s->fractal.z.im);
+	cl_ret |= clSetKernelArg(s->opcl.kernel, 9, sizeof(int), &s->fractal.max_iteration);
+	//ft_putnbr(CL_SUCCESS);
+	if (cl_ret != CL_SUCCESS)
 		terminate(s, "12");
+
 
 	ret = clEnqueueNDRangeKernel(s->opcl.queue, s->opcl.kernel, 1,
 			NULL, &s->opcl.total_s, &s->opcl.local_s, 0, NULL, NULL);
 	if (ret != CL_SUCCESS)
 		terminate(s, "13");
 // error
+
 	clEnqueueReadBuffer(s->opcl.queue, s->opcl.buf, CL_TRUE, 0,
 			WIN_X * WIN_Y * 4, s->image.data, 0, NULL, NULL);
 
