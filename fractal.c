@@ -169,8 +169,13 @@ int		init_cl(t_screen *s)
 {
 	char	buf[10000];
 	int ret;
+	int ret1;
 	cl_int cl_ret;
 	char *src;
+
+//ft_bzero(s->image.data, WIN_X * WIN_Y * 4);
+	
+
 
 	if ((ret = clGetPlatformIDs(0, 0, &s->opcl.pltf_num)) != CL_SUCCESS)
 		terminate(s, "1");
@@ -213,47 +218,70 @@ int		init_cl(t_screen *s)
 			"draw", &ret)))
 		terminate(s, "11");
 
-
+	printf("\n 1 = %d\n; 2 = %d\n; 3 = %d\n", (int)s->image.data[555555], (int)s->image.data[666666], (int)s->image.data[777777]);
 	s->opcl.total_s = WIN_X * WIN_Y;
 	s->opcl.local_s = 250;
 //	ft_putstr("where");
 	cl_ret = clSetKernelArg(s->opcl.kernel,
-			0, sizeof(cl_mem), &s->image.data);
-	ft_putstr("where");
+			0, sizeof(cl_mem), &s->opcl.buf);
+	if (cl_ret != CL_SUCCESS)
+	{
+		printf("\ncl_ret = %d\n", cl_ret);
+		terminate(s, "12 1");
+	}
+	// ft_putstr("where");
 
 	cl_ret |= clSetKernelArg(s->opcl.kernel,
 			1, sizeof(double), &s->fractal.max.re);
+	if (cl_ret != CL_SUCCESS)
+		terminate(s, "12 2");
 	cl_ret |= clSetKernelArg(s->opcl.kernel,
 			2, sizeof(double), &s->fractal.max.im);
+	if (cl_ret != CL_SUCCESS)
+		terminate(s, "12 3");
 	cl_ret |= clSetKernelArg(s->opcl.kernel,
 			3, sizeof(double), &s->fractal.min.re);
+	if (cl_ret != CL_SUCCESS)
+		terminate(s, "12 4");
 	cl_ret |= clSetKernelArg(s->opcl.kernel,
 			4, sizeof(double), &s->fractal.min.im);
-	cl_ret |= clSetKernelArg(s->opcl.kernel,
-			5, sizeof(double), &s->fractal.c.re);
-	cl_ret |= clSetKernelArg(s->opcl.kernel,
-			6, sizeof(double), &s->fractal.c.im);
-	cl_ret |= clSetKernelArg(s->opcl.kernel,
-			7, sizeof(double), &s->fractal.z.re);
-	cl_ret |= clSetKernelArg(s->opcl.kernel,
-			8, sizeof(double), &s->fractal.z.im);
-	cl_ret |= clSetKernelArg(s->opcl.kernel, 9, sizeof(int), &s->fractal.max_iteration);
+	if (cl_ret != CL_SUCCESS)
+		terminate(s, "12 5");
+	// cl_ret |= clSetKernelArg(s->opcl.kernel,
+	// 		5, sizeof(double), &s->fractal.c.re);
+	// // if (cl_ret != CL_SUCCESS)
+	// // 	terminate(s, "12 6");
+	// cl_ret |= clSetKernelArg(s->opcl.kernel,
+	// 		6, sizeof(double), &s->fractal.c.im);
+	// // if (cl_ret != CL_SUCCESS)
+	// // 	terminate(s, "12 7");
+	// cl_ret |= clSetKernelArg(s->opcl.kernel,
+	// 		7, sizeof(double), &s->fractal.z.re);
+	// // if (cl_ret != CL_SUCCESS)
+	// // 	terminate(s, "12 8");
+	// cl_ret |= clSetKernelArg(s->opcl.kernel,
+	// 		8, sizeof(double), &s->fractal.z.im);
+	// if (cl_ret != CL_SUCCESS)
+	// 	terminate(s, "12 9");
+	cl_ret |= clSetKernelArg(s->opcl.kernel, 5, sizeof(int), &s->fractal.max_iteration);
 	//ft_putnbr(CL_SUCCESS);
 	if (cl_ret != CL_SUCCESS)
-		terminate(s, "12");
+		terminate(s, "12 10");
 
 
-	ret = clEnqueueNDRangeKernel(s->opcl.queue, s->opcl.kernel, 1,
+	ret1 = clEnqueueNDRangeKernel(s->opcl.queue, s->opcl.kernel, 1,
 			NULL, &s->opcl.total_s, &s->opcl.local_s, 0, NULL, NULL);
 	if (ret != CL_SUCCESS)
 		terminate(s, "13");
 // error
 
+// нет обраотки 
 	clEnqueueReadBuffer(s->opcl.queue, s->opcl.buf, CL_TRUE, 0,
 			WIN_X * WIN_Y * 4, s->image.data, 0, NULL, NULL);
-
+//mlx_clear_window(s->mlx_ptr, s->win_ptr);
 	mlx_put_image_to_window(s->mlx_ptr, s->win_ptr,
 						s->image.ptr, 0, 0);
+	printf("\n 1 = %d\n; 2 = %d\n; 3 = %d\n", (int)s->image.data[555555], (int)s->image.data[666666], (int)s->image.data[777777]);
 	return (1);
 }
 
@@ -264,6 +292,7 @@ void	init(t_screen *const s)
 	if (!(s->win_ptr = mlx_new_window(s->mlx_ptr,
 					WIN_X, WIN_Y, "asdf")))
 		ft_exit("Error: mlx_new_window failed.\n");
+	
 	if (!(s->image.ptr = mlx_new_image(s->mlx_ptr, WIN_X, WIN_Y)))
 		ft_exit("Error: mls_new_image failed.\n");
 	if (!(s->image.data = (int *)mlx_get_data_addr(s->image.ptr,
@@ -274,7 +303,7 @@ void	init(t_screen *const s)
 	s->fractal.min.im = -2.0;
 	s->fractal.max.im = s->fractal.min.im +
 		(s->fractal.max.re - s->fractal.min.re) * WIN_Y / WIN_X;
-	s->fractal.max_iteration = 13;
+	s->fractal.max_iteration = 50;
 }
 
 
@@ -365,7 +394,8 @@ int		mouse_hook(const  int keycode, int x, int y,	t_screen * const s)
 			interpolate(mouse.re, s->fractal.max.re, interpolation);
 		s->fractal.max.im =
 			interpolate(mouse.im, s->fractal.max.im, interpolation);
-		print_fractal(s);
+		//print_fractal(s);
+
 	}
 	return (1);
 }
@@ -403,8 +433,8 @@ int		main(int ac, char **av)
 	
 
 	
-	mlx_hook(s->win_ptr, 2, 0, key_hook, s);
-	mlx_hook(s->win_ptr, 4, 0, mouse_hook, s);
+//	mlx_hook(s->win_ptr, 2, 0, key_hook, s);
+//	mlx_hook(s->win_ptr, 4, 0, mouse_hook, s);
 	mlx_loop(s->mlx_ptr);
 	return (1);
 }

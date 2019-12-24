@@ -2,7 +2,7 @@
 # define WIN_Y 1000
 
 
-__kernel void draw(__global int *data, double maxre, double maxim, double minre, double minim, double cre, double cim, double zre, double zim, int max_iteration)
+__kernel void draw(__global int *data, double maxre, double maxim, double minre, double minim, int max_iteration)
 {
 	int			iteration;
 	int			x;
@@ -13,6 +13,10 @@ __kernel void draw(__global int *data, double maxre, double maxim, double minre,
 	double		blue;
 	double 		factorre;
 	double 		factorim;
+	double 		cre;
+	double 		cim;
+	double 		zre;
+	double 		zim;
 
 	factorre = (maxre - minre) / (WIN_X - 1);
 	factorim = (maxim - minim) / (WIN_Y - 1);
@@ -28,7 +32,7 @@ __kernel void draw(__global int *data, double maxre, double maxim, double minre,
 			zre = cre; 
 			zim = cim;
 			iteration = 0;
-			while ((zre * zre) + (zim * zim) <= 4 && iteration < max_iteration)
+			while ((zre * zre) + (zim * zim) <= 4 && (iteration < max_iteration))
 			{
 				zre = (zre * zre) - (zim * zim) + cre;
 				zim	= 2.0 * zre * zim + cim;
@@ -38,7 +42,7 @@ __kernel void draw(__global int *data, double maxre, double maxim, double minre,
 
 			red = (int)(9 * (1 - t) * (t * t * t) * 255);
 			green = (int)(15 * ((1 - t) * (1 - t)) * (t * t) * 255);
-			blue = (int)(8.5 * ((1 - t) * (1 - t) * (1 - t)) * t * 255);
+			blue = (int)(8 * ((1 - t) * (1 - t) * (1 - t)) * t * 255);
 
 			data[WIN_X * y + x] = red * green * blue;
 			x++;
