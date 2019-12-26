@@ -2,7 +2,7 @@
 # define WIN_Y 1000
 
 
-__kernel void draw(__global int *data, double maxre, double maxim, double minre, double minim, int max_iteration)
+__kernel void draw(__global int *buf, double maxre, double maxim, double minre, double minim, int max_iteration, int message)
 {
 	int			iteration;
 	int			x;
@@ -17,6 +17,10 @@ __kernel void draw(__global int *data, double maxre, double maxim, double minre,
 	double 		cim;
 	double 		zre;
 	double 		zim;
+
+	int gid = get_global_id(0);
+
+	message += gid;
 
 	factorre = (maxre - minre) / (WIN_X - 1);
 	factorim = (maxim - minim) / (WIN_Y - 1);
@@ -42,9 +46,10 @@ __kernel void draw(__global int *data, double maxre, double maxim, double minre,
 
 			red = (int)(9 * (1 - t) * (t * t * t) * 255);
 			green = (int)(15 * ((1 - t) * (1 - t)) * (t * t) * 255);
-			blue = (int)(8 * ((1 - t) * (1 - t) * (1 - t)) * t * 255);
+			blue = (int)(8.5 * ((1 - t) * (1 - t) * (1 - t)) * t * 255);
 
-			data[WIN_X * y + x] = red * green * blue;
+			buf[WIN_X * y + x] =  red * green * blue;
+			
 			x++;
 		}
 		y++;
