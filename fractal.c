@@ -55,6 +55,7 @@ typedef struct		s_opcl
 	cl_context			context;
 	cl_program			program;
 	cl_kernel			kernel;
+
 	cl_mem				buf;
 	size_t				total_s;
 	size_t				local_s;
@@ -62,7 +63,6 @@ typedef struct		s_opcl
 	cl_uint				pltf_num;
 	cl_uint				dev_num;
 
-	float 				*test;
 }					t_opcl;
 
 typedef struct	s_fractal
@@ -170,20 +170,21 @@ char	*load_src(char *path)
 void	get_kernel(t_screen *s)
 {
 	int		ret;
-	char	buf[10000];
+	char	buf[204800];
+	size_t len;
 
-	ret = clBuildProgram(s->opcl.program, 1,
-			&s->opcl.dev, 0, 0, 0);
+	ret = clBuildProgram(s->opcl.program, 0,
+			NULL, NULL, NULL, NULL);
 	if (CL_SUCCESS != ret)
 	{
 		clGetProgramBuildInfo(s->opcl.program, s->opcl.dev,
-				CL_PROGRAM_BUILD_LOG, 100000, &buf, NULL);
+				CL_PROGRAM_BUILD_LOG, sizeof(buf), buf, &len);
 		ft_putstr(buf);
-		terminate(s, "CL_ERROR_13");
+		terminate(s, "Error: Failed to build program executable!");
 	}
 	if (!(s->opcl.kernel = clCreateKernel(s->opcl.program,
 			"draw", &ret)))
-		terminate(s, "CL_ERROR_12");
+		terminate(s, "Error: Failed to create compute kernel!");
 }
 
 int		get_device(t_screen *s)
@@ -194,40 +195,36 @@ int		get_device(t_screen *s)
 	cl_uint				dev_num;
 
 	if ((ret = clGetPlatformIDs(0, 0, &pltf_num)) != CL_SUCCESS)
-		terminate(s, "CL_ERROR_11");
+		terminate(s, "Error: At obtain the list of platforms available.");
 	if ((ret |= clGetPlatformIDs(pltf_num, &platformid, 0)) != CL_SUCCESS)
-		terminate(s, "CL_ERROR_10");
+		terminate(s, "Error: At obtain the list of platforms available.");
 	if ((ret |= clGetDeviceIDs(platformid,
 			CL_DEVICE_TYPE_GPU, 0, 0, &dev_num)) != CL_SUCCESS)
-		terminate(s, "CL_ERROR_9");
+		terminate(s, "Error: Failed to create a device group.");
 	if ((ret |= clGetDeviceIDs(platformid,
 			CL_DEVICE_TYPE_GPU, dev_num, &s->opcl.dev, 0)) != CL_SUCCESS)
-		terminate(s, "CL_ERROR_8");
+		terminate(s, "Error: Failed to create a device group.");
 	return (1);
 }
 
-int		init_cl1(t_screen *s)
+int		init_cl(t_screen *s)
 {
 	int			ret;
 	char		*src;
 
-	s->opcl.test = (float *)malloc(sizeof(float) * 10);
-	s->opcl.buf = NULL;
-
 	if (!(get_device(s)))
 		return (0);
-	if (!(s->opcl.context = clCreateContext(0, 1, &s->opcl.dev, 0, 0, &ret)))
-		terminate(s, "CL_ERROR_7");
+	if (!(s->opcl.context = clCreateContext(0, 1, &s->opcl.dev, NULL, NULL, &ret)))
+		terminate(s, "Error: Failed to create a compute context.");
 	if (!(s->opcl.queue = clCreateCommandQueue(s->opcl.context,
 			s->opcl.dev, 0, &ret)))
-		terminate(s, "CL_ERROR_6");
-
+		terminate(s, "Error: Failed to create a command commands.");
 	if (!(src = load_src("calc.cl")))
-		terminate(s, "STD_ERROR_4");
+		terminate(s, "Error: when reading a program.");
 	if (!(s->opcl.program =
 			clCreateProgramWithSource(s->opcl.context,
 					1, (const char**)&src, NULL, &ret)))
-		terminate(s, "CL_ERROR_3");
+		terminate(s, "Error: Failed to create compute program.");
 	free(src);
 
 		get_kernel(s);
@@ -235,17 +232,12 @@ int		init_cl1(t_screen *s)
 		int memLenth = 10;
 
 	s->opcl.buf = clCreateBuffer(s->opcl.context,
-		CL_MEM_READ_WRITE, sizeof(float) * memLenth, 0, &ret);
-
-	ret = clEnqueueWriteBuffer(s->opcl.queue, s->opcl.buf, CL_TRUE, 0,
-			memLenth * sizeof(float), s->opcl.test, 0, NULL, NULL);
-
-//	s->opcl.buf = clCreateBuffer(s->opcl.context,
-//			CL_MEM_WRITE_ONLY, WIN_X * WIN_Y * 4, 0, &ret);
-	if (ret != CL_SUCCESS)
-		terminate(s, "CL_ERROR_5");
-
-
+		CL_MEM_READ_ONLY, sizeof(int) * WIN_X * WIN_Y, NULL, NULL);
+	if (!s->opcl.buf)
+    {
+        printf("Error: Failed to allocate device memory!\n");
+        exit(1);
+    }    
 	return (1);
 }
 
@@ -255,203 +247,72 @@ void		set_args(t_screen *s)
 {
 	cl_int		ret;
 
-
-
-	int test;
-
-//	ret = clSetKernelArg(s->opcl.kernel, 0, sizeof(cl_mem), &s->opcl.buf);
-	ret |= clSetKernelArg(s->opcl.kernel, 0, sizeof(cl_mem), (void *)&s->opcl.buf);
-
-	// ret = clSetKernelArg(s->opcl.kernel, 0, sizeof(cl_mem), &s->opcl.buf);
-	// ret |= clSetKernelArg(s->opcl.kernel, 1, sizeof(double), &s->fractal.max.re);
-	// ret |= clSetKernelArg(s->opcl.kernel, 2, sizeof(double), &s->fractal.max.im);
-	// ret |= clSetKernelArg(s->opcl.kernel, 3, sizeof(double), &s->fractal.min.re);
-	// ret |= clSetKernelArg(s->opcl.kernel, 4, sizeof(double), &s->fractal.min.im);
-	//ret |= clSetKernelArg(s->opcl.kernel, 0, sizeof(int), &s->fractal.max_iteration);
-
-
-	// ret = clSetKernelArg(opcl->kernel, 0, sizeof(cl_mem), &opcl->buf);
-	// ret |= clSetKernelArg(opcl->kernel, 1, sizeof(double), &f->m_x);
-	// ret |= clSetKernelArg(opcl->kernel, 2, sizeof(double), &f->m_y);
-	// ret |= clSetKernelArg(opcl->kernel, 3, sizeof(double), &f->zoom);
-	// ret |= clSetKernelArg(opcl->kernel, 4, sizeof(double), &f->dx);
-	// ret |= clSetKernelArg(opcl->kernel, 5, sizeof(double), &f->dy);
-	// ret |= clSetKernelArg(opcl->kernel, 6, sizeof(int), &f->iter);
-	// ret |= clSetKernelArg(opcl->kernel, 7, sizeof(int), &f->type);
-	// ret |= clSetKernelArg(opcl->kernel, 8, sizeof(double), &f->ms_x);
-	// ret |= clSetKernelArg(opcl->kernel, 9, sizeof(double), &f->ms_y);
-	// ret |= clSetKernelArg(opcl->kernel, 10, sizeof(double), &f->color);
+	double size = 256;
+	ret = clSetKernelArg(s->opcl.kernel, 0, sizeof(cl_mem), &s->opcl.buf);
+	ret |= clSetKernelArg(s->opcl.kernel, 1, sizeof(double), &s->fractal.max.re);
+	ret |= clSetKernelArg(s->opcl.kernel, 2, sizeof(double), &s->fractal.max.im);
+	ret |= clSetKernelArg(s->opcl.kernel, 3, sizeof(double), &s->fractal.min.re);
+	ret |= clSetKernelArg(s->opcl.kernel, 4, sizeof(double), &s->fractal.min.im);
+	ret |= clSetKernelArg(s->opcl.kernel, 5, sizeof(int), &s->fractal.max_iteration);
+	ret |= clSetKernelArg(s->opcl.kernel, 6, sizeof(double), &size);
 	if (ret != CL_SUCCESS)
-		terminate(s, "CL_ERROR_1");
+		terminate(s, "Error: At set the arguments values for kernel.");
 }
 
 void		execute_kernel(t_screen *s)
 {
 	int		ret;
-
-	s->opcl.total_s = WIN_X * WIN_Y;
-	s->opcl.local_s = 1;
-	size_t global_work_size[1] = { 1 };
+	//s->opcl.total_s = WIN_X * WIN_Y;
+//	s->opcl.local_s;		
+	const size_t globalT = 256;
 	set_args(s);
+//**?
+	int		err = 0;
+	 err = clGetKernelWorkGroupInfo( s->opcl.kernel, s->opcl.dev, CL_KERNEL_WORK_GROUP_SIZE,
+	 		sizeof(s->opcl.local_s), &s->opcl.local_s, NULL);
+    if (err != CL_SUCCESS)
+    {
+        printf("Error: Failed to retrieve kernel work group info. %d\n", err);
+        exit(1);
+    }
+
 	ret = clEnqueueNDRangeKernel(s->opcl.queue, s->opcl.kernel, 1,
-			NULL, global_work_size, NULL, 0, NULL, NULL);
+			NULL, &globalT , &s->opcl.local_s, 0, NULL, NULL);
 	if (ret != CL_SUCCESS)
-		terminate(s, "CL_ERROR_2");
+		terminate(s, "Error: Failed to execute kernel.");
 }
 
 
-void		draw1(t_screen *s)
+void		draw(t_screen *s)
 {
-	int test;
-	int memLenth = 10;
-//	ft_bzero(s->image.data, WIN_X * WIN_Y * 4);
-//	mlx_clear_window(s->mlx_ptr, s->win_ptr);
+
+	ft_bzero(s->image.data, WIN_X * WIN_Y * 4);
+	mlx_clear_window(s->mlx_ptr, s->win_ptr);
+
+	int		err = 0;
+
 	execute_kernel(s);
+
 	clEnqueueReadBuffer(s->opcl.queue, s->opcl.buf, CL_TRUE, 0,
-			sizeof(float) * memLenth , &s->opcl.test, 0, NULL, NULL);
-	
-	//&s->image.data
-	printf("here");
-	printf("%f \n", s->opcl.test[1]);
-	//mlx_put_image_to_window(s->mlx_ptr, s->win_ptr, s->image.ptr, 0, 0);
+			sizeof(int) * WIN_X * WIN_Y, s->image.data, 0, NULL, NULL);
+	if (err != CL_SUCCESS)
+    {
+        printf("Error: Failed to read output array! %d\n", err);
+        exit(1);
+    }
+
+	mlx_put_image_to_window(s->mlx_ptr, s->win_ptr, s->image.ptr, 0, 0);
 	//print_info(f);
-	//mlx_do_sync(s->mlx_ptr);
+	mlx_do_sync(s->mlx_ptr); //???
 }
 
-
-// int		init_cl(t_screen *s)
-// {
-// 	char	buf[10000];
-// 	int ret;
-// 	int ret1;
-// 	cl_int cl_ret;
-// 	char *src;
-
-// 	//ft_bzero(s->image.data, WIN_X * WIN_Y * 4);
-	
 // 	//аргументы по ссылке или по значению передавать 
 // 	// по два вызова функций для чего 
 // 	// преобразование типов на вход и выход kernel
 // 	// написать простейший код 
 // 	// в чем разница cl типов 
 
-// 	/* получить доступные платформы */
-
-// 	if ((ret = clGetPlatformIDs(0, 0, &s->opcl.pltf_num)) != CL_SUCCESS)
-// 		terminate(s, "1");
-// 	if ((ret |= clGetPlatformIDs(s->opcl.pltf_num, &s->opcl.platformid, 0)) != CL_SUCCESS)
-// 		terminate(s, "2");
-
-// 	/* получить доступные устройства */
-// 	if ((ret |= clGetDeviceIDs(s->opcl.platformid,
-// 			CL_DEVICE_TYPE_GPU, 0, 0, &s->opcl.dev_num)) != CL_SUCCESS)
-// 		terminate(s, "3");
-// 	if ((ret |= clGetDeviceIDs(s->opcl.platformid,
-// 			CL_DEVICE_TYPE_GPU, s->opcl.dev_num, &s->opcl.dev, 0)) != CL_SUCCESS)
-// 		terminate(s, "4");
-
-// 	/* создать контекст */
-// 	if (!(s->opcl.context = clCreateContext(0, 1, &s->opcl.dev, 0, 0, &ret)))
-// 		terminate(s, "5");
-
-// 	/* создаем команду */
-// 	if (!(s->opcl.queue = clCreateCommandQueue(s->opcl.context,
-// 			s->opcl.dev, 0, &ret)))
-// 		terminate(s, "6");
-
-// 	/* создать буфер */
-// 	s->opcl.buf = clCreateBuffer(s->opcl.context,
-// 			CL_MEM_WRITE_ONLY, WIN_X * WIN_Y * 4, 0, &ret);
-// 	if (ret != CL_SUCCESS)
-// 		terminate(s, "7");
-// 	if (!(src = load_src("calc.cl")))
-// 		terminate(s, "8");
-
-// 	/* создать бинарник из кода программы */
-// 	if (!(s->opcl.program =
-// 			clCreateProgramWithSource(s->opcl.context,
-// 					1, (const char**)&src, NULL, &ret)))
-// 		terminate(s, "9");
-// 	free(src);
-
-// 	/* скомпилировать программу */
-// 	ret = clBuildProgram(s->opcl.program, 1,
-// 			&s->opcl.dev, 0, 0, 0);
-// 	if (CL_SUCCESS != ret)
-// 	{
-// 		clGetProgramBuildInfo(s->opcl.program, s->opcl.dev,
-// 				CL_PROGRAM_BUILD_LOG, 100000, &buf, NULL);
-// 		ft_putstr(buf);
-// 		terminate(s, "10");
-// 	}
-
-// 	/* создать кернел */
-// 	if (!(s->opcl.kernel = clCreateKernel(s->opcl.program,
-// 			"draw", &ret)))
-// 		terminate(s, "11");
-
-// 	printf("\n 1 = %d\n; 2 = %d\n; 3 = %d\n", (int)s->image.data[555555], (int)s->image.data[666666], (int)s->image.data[777777]);
-// 	s->opcl.total_s = WIN_X * WIN_Y;
-// 	s->opcl.local_s = 1;
-// 	//	ft_putstr("where");
-// 	cl_ret = clSetKernelArg(s->opcl.kernel,
-// 			0, sizeof(cl_mem), &s->opcl.buf);
-// 	if (cl_ret != CL_SUCCESS)
-// 	{
-// 		printf("\ncl_ret = %d\n", cl_ret);
-// 		terminate(s, "12 1");
-// 	}
-// 	// ft_putstr("where");
-
-// 	int message;
-// 	/* устанавливаем параметры */
-// 	cl_ret |= clSetKernelArg(s->opcl.kernel,
-// 			1, sizeof(double), &s->fractal.max.re);
-// 	if (cl_ret != CL_SUCCESS)
-// 		terminate(s, "12 2");
-// 	cl_ret |= clSetKernelArg(s->opcl.kernel,
-// 			2, sizeof(double), &s->fractal.max.im);
-// 	if (cl_ret != CL_SUCCESS)
-// 		terminate(s, "12 3");
-// 	cl_ret |= clSetKernelArg(s->opcl.kernel,
-// 			3, sizeof(double), &s->fractal.min.re);
-// 	if (cl_ret != CL_SUCCESS)
-// 		terminate(s, "12 4");
-// 	cl_ret |= clSetKernelArg(s->opcl.kernel,
-// 			4, sizeof(double), &s->fractal.min.im);
-// 	if (cl_ret != CL_SUCCESS)
-// 		terminate(s, "12 5");
-// 	cl_ret |= clSetKernelArg(s->opcl.kernel, 5, sizeof(int), &s->fractal.max_iteration);
-// 	if (cl_ret != CL_SUCCESS)
-// 		terminate(s, "12 10");
-// 	cl_ret |= clSetKernelArg(s->opcl.kernel, 6, sizeof(int), message);
-// 	if (cl_ret != CL_SUCCESS)
-// 		terminate(s, "12 11");
-
-// 	/* выполнить кернел */
-// 	ret1 = clEnqueueNDRangeKernel(s->opcl.queue, s->opcl.kernel, 1,
-// 			NULL, &s->opcl.total_s, &s->opcl.local_s, 0, NULL, NULL);
-// 	if (ret != CL_SUCCESS)
-// 		terminate(s, "13");
-// 	// error
-
-// 	// нет обраотки 
-// 	/* считать данные из буфера */
-// 	clEnqueueReadBuffer(s->opcl.queue, s->opcl.buf, CL_TRUE, 0,
-// 			WIN_X * WIN_Y * 4, s->image.data, 0, NULL, NULL);
-
-// 	clEnqueueReadBuffer(s->opcl.queue, message, CL_TRUE, 0,
-// 			sizeof(int), message, 0, NULL, NULL);
-
-// 	//mlx_clear_window(s->mlx_ptr, s->win_ptr);
-// 	mlx_put_image_to_window(s->mlx_ptr, s->win_ptr,
-// 						s->image.ptr, 0, 0);
-// 	printf("\n 1 = %d\n; 2 = %d\n; 3 = %d\n", (int)s->image.data[555555], (int)s->image.data[666666], (int)s->image.data[777777]);
-// 	printf("%d \n", message);
-// 	return (1);
-// }
-
-void	init(t_screen *const s)
+void	init(t_screen * s)
 {
 	if (!(s->mlx_ptr = mlx_init()))
 		ft_exit("Error: mlx failed.\n");
@@ -469,172 +330,8 @@ void	init(t_screen *const s)
 	s->fractal.min.im = -2.0;
 	s->fractal.max.im = s->fractal.min.im +
 		(s->fractal.max.re - s->fractal.min.re) * WIN_Y / WIN_X;
-	s->fractal.max_iteration = 50;
+	s->fractal.max_iteration = 25;
 }
-
-
-
-// int test_cl1()
-// {
-// 	cl_platform_id 		platform_id;
-// 	cl_uint				ret_num_platforms;
-// 	cl_device_id		device_id;
-// 	int 				ret;
-// 	cl_context			context;
-// 	cl_command_queue	command_queue;
-// 	cl_device_id		ret_num_devices;
-
-// 	/* получить доступные платформы */
-// 	ret = clGetPlatformIDs(1, &platform_id, &ret_num_platforms);
-
-// 	/* получить доступные устройства */
-// 	ret = clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_DEFAULT, 1, &device_id, &ret_num_devices);
-
-// 	/* создать контекст */
-// 	context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &ret);
-
-// 	/* создаем команду */
-// 	command_queue = clCreateCommandQueue(context, device_id, 0, &ret);
-
-// 	cl_program 			program = NULL;
-// 	cl_kernel 			kernel = NULL;
-
-// 	FILE 				*fp;
-// 	int 				MAX_SOURCE_SIZE	= 8000;
-// 	const char 			fileName[] = "test.cl";
-// 	size_t 				source_size;
-// 	char 				*source_str;
-// 	int 				i;
-
-// 	fp = fopen(fileName, "r");
-// 	if (!fp) {
-// 		fprintf(stderr, "Failed to load kernel.\n");
-// 		exit(1);
-// 	}
-// 	source_str = (char *)malloc(MAX_SOURCE_SIZE);
-// 	source_size = fread(source_str, 1, MAX_SOURCE_SIZE, fp);
-// 	fclose(fp);
-
-// 	int ret1;
-
-// 	/* создать бинарник из кода программы */
-// 	program = clCreateProgramWithSource(context, 1, (const char **)&source_str, (const size_t *)&source_size, &ret1);
-
-// 	/* скомпилировать программу */
-// 	ret1 = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
-
-// 	/* создать кернел */
-// 	kernel = clCreateKernel(program, "test", &ret1);
-
-// 	cl_mem 		memobj = NULL;
-// 	int 		memLenth = 10;
-// 	cl_int 		mem;
-// 	int 		ret2;
-
-// 	/* создать буфер */
-// 	memobj = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_int), NULL, &ret2);
-
-// 	/* записать данные в буфер */
-// 	//ret2 = clEnqueueWriteBuffer(command_queue, memobj, CL_TRUE, 0, sizeof(cl_int), mem, 0, NULL, NULL);
-
-// 	/* устанавливаем параметр */
-// 	ret2 = clSetKernelArg(kernel, 0, sizeof(cl_mem), &memobj);
-
-// 	size_t global_work_size = 1;
-
-// 	int ret3;
-// 	/* выполнить кернел */
-// 	ret3 = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, 1, NULL, 0, NULL, NULL);
-
-// 	/* считать данные из буфера */
-// 	ret3 = clEnqueueReadBuffer(command_queue, memobj, CL_TRUE, 0,  sizeof(cl_int), mem, 0, NULL, NULL);
-
-// 	printf("%d \n", mem);
-// }
-
-// int test_cl()
-// {
-
-// 	cl_device_id		dev;
-// 	cl_command_queue	command_queue;
-// 	cl_context			context;
-// 	cl_program			program = NULL;
-// 	cl_kernel			kernel = NULL;
-// 	cl_mem				buf;
-// 	size_t				total_s;
-// 	size_t				local_s;
-// 	cl_platform_id		platform_id;
-// 	cl_uint				ret_num_platforms;
-// 	cl_uint				device_id;
-// 	cl_uint				ret_num_devices;
-// 	int 				ret;
-
-// 	/* получить доступные платформы */
-// 	ret = clGetPlatformIDs(1, &platform_id, &ret_num_platforms);
-
-// 	/* получить доступные устройства */
-// 	ret = clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_DEFAULT, 1, &device_id, &ret_num_devices);
-
-// 	/* создать контекст */
-// 	context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &ret);
-
-// 	/* создаем команду */
-// 	command_queue = clCreateCommandQueue(context, device_id, 0, &ret);
-
-
-// 	FILE *fp;
-// 	const char fileName[] = "test.cl";
-// 	size_t 		source_size;
-// 	char 	*source_str;
-// 	int 	i;
-
-// 	fp = fopen(fileName, "r");
-// 	if (!fp) {
-// 		fprintf(stderr, "Failed to load kernel.\n");
-// 		exit(1);
-// 	}
-// 	source_str = (char *)malloc(1024 * 8 * 8);
-// 	source_size = fread(source_str, 1, 1024 * 8 * 8, fp);
-// 	fclose(fp);
-
-
-// 	/* создать бинарник из кода программы */
-// 	program = clCreateProgramWithSource(context, 1, (const char **)&source_str, (const size_t *)&source_size, &ret);
-
-// 	/* скомпилировать программу */
-// 	ret = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
-
-// 	/* создать кернел */
-// 	kernel = clCreateKernel(program, "test", &ret);
-
-// 	cl_mem memobj = NULL;
-// 	int memLenth = 10;
-// 	cl_int* mem = (cl_int *)malloc(sizeof(cl_int) * memLenth);
-
-// 	/* создать буфер */
-// 	memobj = clCreateBuffer(context, CL_MEM_READ_WRITE, memLenth * sizeof(cl_int), NULL, &ret);
-
-// 	/* записать данные в буфер */
-// 	ret = clEnqueueWriteBuffer(command_queue, memobj, CL_TRUE, 0, memLenth * sizeof(cl_int), mem, 0, NULL, NULL);
-
-// 	/* устанавливаем параметр */
-// 	ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&memobj);
-
-// 	size_t global_work_size[1] = { 10 };
-
-// 	/* выполнить кернел */
-// 	ret = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, NULL);
-
-// 	/* считать данные из буфера */
-// 	ret = clEnqueueReadBuffer(command_queue, memobj, CL_TRUE, 0, memLenth * sizeof(float), mem, 0, NULL, NULL);
-
-// 	i = 0;
-// 	while (i < memLenth)
-// 	{
-// 		printf("%d ", mem[i]);
-// 		++i;
-// 	}
-// }
 
 // void print_fractal(t_screen * const s)
 // {
@@ -724,8 +421,7 @@ int		mouse_hook(const  int keycode, int x, int y,	t_screen * const s)
 			interpolate(mouse.re, s->fractal.max.re, interpolation);
 		s->fractal.max.im =
 			interpolate(mouse.im, s->fractal.max.im, interpolation);
-		//print_fractal(s);
-
+			draw(s);
 	}
 	return (1);
 }
@@ -738,12 +434,12 @@ int     key_hook(const  int keycode, t_screen * const s)
 	else if (69 == keycode)
 	{
 		s->fractal.max_iteration += 1;
-//		print_fractal(s);
+		draw(s);
 	}
 	else if (78 == keycode)
 	{
 		s->fractal.max_iteration -= 1;
-//		print_fractal(s);
+		draw(s);
 	}
 	return (1);
 }
@@ -758,15 +454,12 @@ int		main(int ac, char **av)
 	if (!(s = (t_screen *)malloc(sizeof(t_screen))))
 		ft_exit("Error: the memory hasn't been allocated.\n");
 	init(s);
-	init_cl1(s);
-	draw1(s);
-//	test_cl1();
-	//print_fractal(s);
+	init_cl(s);
+	draw(s);
 	
-
-	
-//	mlx_hook(s->win_ptr, 2, 0, key_hook, s);
-//	mlx_hook(s->win_ptr, 4, 0, mouse_hook, s);
+	mlx_hook(s->win_ptr, 2, 0, key_hook, s);
+	mlx_hook(s->win_ptr, 4, 0, mouse_hook, s);
 	mlx_loop(s->mlx_ptr);
+		write(1, "here", 4);
 	return (1);
 }
