@@ -62,21 +62,19 @@ typedef struct		s_opcl
 	cl_platform_id		platformid;
 	cl_uint				pltf_num;
 	cl_uint				dev_num;
-
 }					t_opcl;
 
 typedef struct	s_fractal
 {
-	int			red;
-	int			green;
-	int			blue;
-	double		t;
 	int			max_iteration;
 	t_compl		min;
 	t_compl		max;
 	t_compl		factor;
 	t_compl		c;
 	t_compl		z;
+	t_compl		k;
+	char		fixed;
+	int 		threads;		
 }				t_fractal;
 
 typedef	struct	s_screen
@@ -170,7 +168,7 @@ char	*load_src(char *path)
 void	get_kernel(t_screen *s)
 {
 	int		ret;
-	char	buf[204800];
+	char	buf[65536];
 	size_t len;
 
 	ret = clBuildProgram(s->opcl.program, 0,
@@ -249,12 +247,16 @@ void		set_args(t_screen *s)
 
 	double size = 256;
 	ret = clSetKernelArg(s->opcl.kernel, 0, sizeof(cl_mem), &s->opcl.buf);
-	ret |= clSetKernelArg(s->opcl.kernel, 1, sizeof(double), &s->fractal.max.re);
-	ret |= clSetKernelArg(s->opcl.kernel, 2, sizeof(double), &s->fractal.max.im);
-	ret |= clSetKernelArg(s->opcl.kernel, 3, sizeof(double), &s->fractal.min.re);
-	ret |= clSetKernelArg(s->opcl.kernel, 4, sizeof(double), &s->fractal.min.im);
-	ret |= clSetKernelArg(s->opcl.kernel, 5, sizeof(int), &s->fractal.max_iteration);
-	ret |= clSetKernelArg(s->opcl.kernel, 6, sizeof(double), &size);
+
+	ret = clSetKernelArg(s->opcl.kernel, 1, sizeof(t_fractal), (void *)&s->fractal);
+	// ret |= clSetKernelArg(s->opcl.kernel, 1, sizeof(double), &s->fractal.max.re);
+	// ret |= clSetKernelArg(s->opcl.kernel, 2, sizeof(double), &s->fractal.max.im);
+	// ret |= clSetKernelArg(s->opcl.kernel, 3, sizeof(double), &s->fractal.min.re);
+	// ret |= clSetKernelArg(s->opcl.kernel, 4, sizeof(double), &s->fractal.min.im);
+	// ret |= clSetKernelArg(s->opcl.kernel, 5, sizeof(int), &s->fractal.max_iteration);
+	// ret |= clSetKernelArg(s->opcl.kernel, 6, sizeof(double), &size);
+	// ret |= clSetKernelArg(s->opcl.kernel, 7, sizeof(double), &s->fractal.k.re);
+	// ret |= clSetKernelArg(s->opcl.kernel, 8, sizeof(double), &s->fractal.k.im);
 	if (ret != CL_SUCCESS)
 		terminate(s, "Error: At set the arguments values for kernel.");
 }
@@ -331,6 +333,10 @@ void	init(t_screen * s)
 	s->fractal.max.im = s->fractal.min.im +
 		(s->fractal.max.re - s->fractal.min.re) * WIN_Y / WIN_X;
 	s->fractal.max_iteration = 25;
+
+	s->fractal.k = init_compl(-0.4, 0.6);
+	s->fractal.threads = 256;
+	s->fractal.fixed = 0;
 }
 
 // void print_fractal(t_screen * const s)
@@ -387,6 +393,16 @@ void	init(t_screen * s)
 // 						s->image.ptr, 0, 0);
 // }
 
+int				julia_motion(int x, int y, t_screen *s)
+{
+	if (!s->fractal.fixed)
+	{
+		s->fractal.k.re = 4 * ((double)x / WIN_X - 0.5),
+		s->fractal.k.im	= 4 * ((double)(WIN_Y - y) / WIN_Y - 0.5);
+		draw(s);
+	}
+	return (0);
+}
 
 double	interpolate(double start, double end, double interpolation)
 {
@@ -426,9 +442,38 @@ int		mouse_hook(const  int keycode, int x, int y,	t_screen * const s)
 	return (1);
 }
 
+static void	move(int key, t_screen *s)
+{
+	t_compl	delta;
+
+	delta = init_compl(ft_abs(s->fractal.max.re - s->fractal.min.re),
+		ft_abs(s->fractal.max.im - s->fractal.min.im));
+	if (key == 123) // left
+	{
+		s->fractal.min.re -= delta.re * 0.05;
+		s->fractal.max.re -= delta.re * 0.05;
+	}
+	else if (key == 124) // right
+	{
+		s->fractal.min.re += delta.re * 0.05;
+		s->fractal.max.re += delta.re * 0.05;
+	}
+	else if (key == 126) // up
+	{
+		s->fractal.min.im += delta.im * 0.05;
+		s->fractal.max.im += delta.im * 0.05;
+	}
+	else if (key == 125) // down
+	{
+		s->fractal.min.im -= delta.im * 0.05;
+		s->fractal.max.im -= delta.im * 0.05;
+	}
+	draw(s);
+}
+
 int     key_hook(const  int keycode, t_screen * const s)
 {
-	//printf("keycode = %d\n", keycode);
+	printf("keycode = %d\n", keycode);
 	if (53 == keycode)
 		exit(0);
 	else if (69 == keycode)
@@ -440,6 +485,14 @@ int     key_hook(const  int keycode, t_screen * const s)
 	{
 		s->fractal.max_iteration -= 1;
 		draw(s);
+	}
+	else if (3 == keycode)
+	{
+		s->fractal.fixed = 1;
+	}
+	else if ((keycode >= 123) && (keycode <= 126))
+	{
+		move(keycode, s);
 	}
 	return (1);
 }
@@ -456,10 +509,13 @@ int		main(int ac, char **av)
 	init(s);
 	init_cl(s);
 	draw(s);
+
+//?	mlx_hook(fractol->window, 17, 0, close, fractol);
 	
 	mlx_hook(s->win_ptr, 2, 0, key_hook, s);
 	mlx_hook(s->win_ptr, 4, 0, mouse_hook, s);
 	mlx_loop(s->mlx_ptr);
+		mlx_hook(s->win_ptr, 6, 0, julia_motion, s);
 		write(1, "here", 4);
 	return (1);
 }
