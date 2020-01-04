@@ -1,58 +1,142 @@
-# define WIN_X 1000
-# define WIN_Y 1000
+# define WIN_X 1024
+# define WIN_Y 1024
 
 #include "cl.h"
 
+int		set_colors(unsigned char o, unsigned char r, \
+			unsigned char g, unsigned char b)
+{
+	int i;
+	int tmp;
+	int res;
+	int j;
+
+	i = 0;
+	res = 0;
+	tmp = 0;
+	j = 0;
+	while (i <= 31)
+	{
+		tmp = (i >= 0 && i <= 7) ? b : tmp;
+		tmp = (i >= 8 && i <= 15) ? g : tmp;
+		tmp = (i >= 16 && i <= 23) ? r : tmp;
+		tmp = (i >= 24 && i <= 31) ? o : tmp;
+		j = 0;
+		while (j <= 7)
+		{
+			if (tmp & (1 << j))
+				res |= 1 << i;
+			++i;
+			++j;
+		}
+	}
+	return (res);
+}
+
+int 		choose_color(int i, int max, int color)
+{
+	int			red;
+	int			blue;
+	int			green;
+	double		n;
+
+	n = (double)i / (double)max;
+	if (color == 1)
+	{
+		red = (int)(9 * (1 - n) * pow(n, 3) * 255);
+		green = (int)(15 * pow((1 - n), 2) * pow(n, 2) * 255);
+		blue = (int)(8.5 * pow((1 - n), 3) * n * 255);
+		return (set_colors(0, red, blue, green));
+	}
+	else if (color == 0)
+	{
+		red = (int)(9 * (1 - n) * pow(n, 3) * 255);
+		green = (int)(15 * pow((1 - n), 2) * pow(n, 2) * 255);
+		blue = (int)(8.5 * pow((1 - n), 3) * n * 255);
+		return (set_colors(0, blue, green, red));
+	}
+	else if (color == 2)
+	{
+		red = (int)(9 * (1 - n) * pow(n, 3) * 255);
+		green = (int)(15 * pow((1 - n), 2) * pow(n, 2) * 255);
+		blue = (int)(8.5 * pow((1 - n), 3) * n * 255);
+		return (set_colors(0, blue, red, green));
+	}
+	else if (color == 3)
+	{
+		red = (int)(9 * (1 - n) * pow(n, 3) * 255);
+		green = (int)(15 * pow((1 - n), 2) * pow(n, 2) * 255);
+		blue = (int)(8.5 * pow((1 - n), 3) * n * 255);
+		return (set_colors(0, red, green, blue));
+	}
+}
+
+
+
 __kernel void draw(__global int *data, t_fractal f)
 {
-		int			iteration;
-		int			x;
-		int			y;
-		double		t;
-		double		red;
-		double		green;
-		double		blue;
-		double		size;
-		
-		size = f.threads;
+	int			iteration;
+	int			x;
+	int			y;
+	//int 		b;
+	//double		t;
+	//double		red;
+	//double		green;
+	//double		blue;
+	//double		size;
+	
+	//size = f.threads;
 
-		int gid = get_global_id(0);
+	int gid = get_global_id(0);
 
-		f.factor.re = (f.max.re - f.min.re) / (WIN_X - 1);
-		f.factor.im = (f.max.im - f.min.im) / (WIN_Y - 1);
+	double		zre;
+	double		zim;
 
-		y = (int)((WIN_Y / size) * gid);
-		while (y <= (int)((WIN_Y / size) * (gid + 1)))
-		{
-			f.c.im = f.max.im - y * f.factor.im;
-			x = 0;
-			while (x < WIN_X)
+    x = gid % WIN_X;
+	y = gid / WIN_Y;
+
+	// y = (int)((WIN_Y / size) * gid);
+	// b = (int)((WIN_Y / size) * (gid + 1));
+	// while (y <= b)
+	// {
+		f.c.im = f.max.im - y * f.factor.im;
+		// x = 0;
+		// while (x < WIN_X)
+		// {
+			f.c.re = f.min.re + x *	f.factor.re;
+			f.z.re = f.c.re;
+			f.z.im = f.c.im;
+			iteration = 0;
+			while ((f.z.re * f.z.re) + (f.z.im * f.z.im) < 4
+					&& iteration < f.max_iteration)
 			{
-				f.c.re = f.min.re + x *	f.factor.re;
-				f.z.re = f.c.re;
-				f.z.im = f.c.im;
-				iteration = 0;
-				while (pow(f.z.re, 2.0) +
-						pow(f.z.im, 2.0) <= 4
-						&& iteration < f.max_iteration)
-				{
-					f.z.re = pow(f.z.re, 2.0) - pow(f.z.im, 2.0) + f.c.re;
-					f.z.im = 2.0 * f.z.re * f.z.im + f.c.im;
-					iteration++;
-				}
-				t = (double)iteration /
-					(double)f.max_iteration;
+				zre = f.z.re;
+				zim = f.z.im;
+				f.z.im = 2 * zim * zre + f.c.im;
+				f.z.re = (zre * zre) - (zim * zim) + f.c.re;
 
-				red = (int)(9 * (1 - t) * pow(t, 3) * 255);
-				green = (int)(15 * pow((1 - t), 2) * pow(t, 2) * 255);
-				blue = (int)(8.5 * pow((1 - t), 3) * t * 255);
-				//Установка цвета точки
-				data[WIN_X * y + x] = red * green * blue;
-				x++;
+				++iteration;
 			}
-			y++;
-		}
+			// t = (double)iteration /
+			// 	(double)f.max_iteration;
 
+			// red = (int)(9 * (1 - t) * pow(t, 3) * 255);
+			// green = (int)(15 * pow((1 - t), 2) * pow(t, 2) * 255);
+			// blue = (int)(8.5 * pow((1 - t), 3) * t * 255);
+			//Установка цвета точки
+			// data[WIN_X * y + x] = red * green * blue;
+			//data[WIN_X * y + x] = iteration % 256 << 1 + iteration % 0 << 3;;
+
+			if (iteration <  f.max_iteration)
+	    	    ((__global int *)data)[gid] = choose_color(iteration, f.max_iteration, 0);
+	    	else
+	            ((__global int *)data)[gid] = 0;
+		// 	x++;
+		// }
+	// 	y++;
+	// }
+
+}
 
 
 	 
@@ -109,4 +193,3 @@ __kernel void draw(__global int *data, t_fractal f)
 	// 	}
 	// 	y++;
 	// }
-}

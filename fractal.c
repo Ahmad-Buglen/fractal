@@ -24,8 +24,8 @@
 
 # include "libft/libft.h"
 
-# define WIN_X 1000
-# define WIN_Y 1000
+# define WIN_X 1024
+# define WIN_Y 1024
 
 typedef	struct	s_point
 {
@@ -178,11 +178,11 @@ void	get_kernel(t_screen *s)
 		clGetProgramBuildInfo(s->opcl.program, s->opcl.dev,
 				CL_PROGRAM_BUILD_LOG, sizeof(buf), buf, &len);
 		ft_putstr(buf);
-		terminate(s, "Error: Failed to build program executable!");
+		terminate(s, "Error: Failed to build program executable.");
 	}
 	if (!(s->opcl.kernel = clCreateKernel(s->opcl.program,
 			"draw", &ret)))
-		terminate(s, "Error: Failed to create compute kernel!");
+		terminate(s, "Error: Failed to create compute kernel.");
 }
 
 int		get_device(t_screen *s)
@@ -202,6 +202,13 @@ int		get_device(t_screen *s)
 	if ((ret |= clGetDeviceIDs(platformid,
 			CL_DEVICE_TYPE_GPU, dev_num, &s->opcl.dev, 0)) != CL_SUCCESS)
 		terminate(s, "Error: Failed to create a device group.");
+
+	// if ((ret = clGetPlatformIDs(1, &platformid, NULL)) != CL_SUCCESS)
+	// 	terminate(s, "Error: At obtain the list of platforms available.");
+	// if ((ret |= clGetDeviceIDs(platformid, CL_DEVICE_TYPE_GPU, \
+	// 		1, &s->opcl.dev, NULL)) != CL_SUCCESS)
+	// 	terminate(s, "Error: Failed to create a device group.");
+
 	return (1);
 }
 
@@ -230,7 +237,7 @@ int		init_cl(t_screen *s)
 		int memLenth = 10;
 
 	s->opcl.buf = clCreateBuffer(s->opcl.context,
-		CL_MEM_READ_ONLY, sizeof(int) * WIN_X * WIN_Y, NULL, NULL);
+		CL_MEM_READ_ONLY, sizeof(cl_int) * WIN_X * WIN_Y, NULL, NULL);
 	if (!s->opcl.buf)
     {
         printf("Error: Failed to allocate device memory!\n");
@@ -245,8 +252,8 @@ void		set_args(t_screen *s)
 {
 	cl_int		ret;
 
-	double size = 256;
-	ret = clSetKernelArg(s->opcl.kernel, 0, sizeof(cl_mem), &s->opcl.buf);
+	//double size = 256;
+	ret = clSetKernelArg(s->opcl.kernel, 0, sizeof(cl_mem), (void *)&s->opcl.buf);
 
 	ret = clSetKernelArg(s->opcl.kernel, 1, sizeof(t_fractal), (void *)&s->fractal);
 	// ret |= clSetKernelArg(s->opcl.kernel, 1, sizeof(double), &s->fractal.max.re);
@@ -266,7 +273,7 @@ void		execute_kernel(t_screen *s)
 	int		ret;
 	//s->opcl.total_s = WIN_X * WIN_Y;
 //	s->opcl.local_s;		
-	const size_t globalT = 256;
+	 size_t globalT = WIN_X * WIN_Y;
 	set_args(s);
 //**?
 	int		err = 0;
@@ -292,19 +299,39 @@ void		draw(t_screen *s)
 	mlx_clear_window(s->mlx_ptr, s->win_ptr);
 
 	int		err = 0;
+	
+	s->fractal.factor.re = (s->fractal.max.re - s->fractal.min.re) / (WIN_X - 1);
+	s->fractal.factor.im = (s->fractal.max.im - s->fractal.min.im) / (WIN_Y - 1);
 
 	execute_kernel(s);
 
 	clEnqueueReadBuffer(s->opcl.queue, s->opcl.buf, CL_TRUE, 0,
-			sizeof(int) * WIN_X * WIN_Y, s->image.data, 0, NULL, NULL);
+			sizeof(cl_int) * WIN_X * WIN_Y, s->image.data, 0, NULL, NULL);
 	if (err != CL_SUCCESS)
     {
         printf("Error: Failed to read output array! %d\n", err);
         exit(1);
-    }
+    }	
+    // clFlush(s->opcl.queue);
+	// clFinish(s->opcl.queue);
 
 	mlx_put_image_to_window(s->mlx_ptr, s->win_ptr, s->image.ptr, 0, 0);
 	//print_info(f);
+
+	// double size = 256;
+	// int gid = 0;
+	// int y = (int)((WIN_Y / size) * gid);
+	// while (gid < 256)
+	// {
+	// 	while (y <= (int)((WIN_Y / size) * (gid + 1)))
+	// 	{
+	// 		printf("%d ", y);
+	// 		++y;
+	// 	}
+	// 	printf(" - %d\n", gid++);
+	// }
+
+
 	mlx_do_sync(s->mlx_ptr); //???
 }
 
@@ -332,66 +359,71 @@ void	init(t_screen * s)
 	s->fractal.min.im = -2.0;
 	s->fractal.max.im = s->fractal.min.im +
 		(s->fractal.max.re - s->fractal.min.re) * WIN_Y / WIN_X;
-	s->fractal.max_iteration = 25;
+	s->fractal.max_iteration = 11;
 
 	s->fractal.k = init_compl(-0.4, 0.6);
 	s->fractal.threads = 256;
 	s->fractal.fixed = 0;
 }
 
-// void print_fractal(t_screen * const s)
-// {
-// 	int			iteration;
-// 	int			x;
-// 	int			y;
+void draw1(t_screen * const s)
+{
+	int			iteration;
+	int			x;
+	int			y;
+	double		t;
+	double		red;
+	double		green;
+	double		blue;
 
-// 	s->fractal.factor = init_compl(
-// 			(s->fractal.max.re - s->fractal.min.re) / (WIN_X - 1),
-// 			(s->fractal.max.im - s->fractal.min.im) / (WIN_Y - 1));
+	s->fractal.factor = init_compl(
+			(s->fractal.max.re - s->fractal.min.re) / (WIN_X - 1),
+			(s->fractal.max.im - s->fractal.min.im) / (WIN_Y - 1));
 
-// 	y = 0;
-// 	while (y < WIN_Y)
-// 	{
-// 		s->fractal.c.im = s->fractal.max.im - y *
-// 			s->fractal.factor.im;
-// 		x = 0;
-// 		while (x < WIN_X)
-// 		{
-// 			s->fractal.c.re = s->fractal.min.re + x *
-// 				s->fractal.factor.re ;
-// 			s->fractal.z = init_compl(s->fractal.c.re,
-// 					s->fractal.c.im);
-// 			iteration = 0;
-// 			while (pow(s->fractal.z.re, 2.0) +
-// 					pow(s->fractal.z.im, 2.0) <= 4
-// 					&& iteration < s->fractal.max_iteration)
-// 			{
-// 				s->fractal.z = init_compl(
-// 						pow(s->fractal.z.re, 2.0) -
-// 						pow(s->fractal.z.im, 2.0) + s->fractal.c.re,
-// 						2.0 * s->fractal.z.re * s->fractal.z.im +
-// 						s->fractal.c.im);
-// 				iteration++;
-// 			}
-// 			s->fractal.t = (double)iteration /
-// 				(double)s->fractal.max_iteration;
+	y = 0;
+	while (y < WIN_Y)
+	{
+		s->fractal.c.im = s->fractal.max.im - y *
+			s->fractal.factor.im;
+		x = 0;
+		while (x < WIN_X)
+		{
+			s->fractal.c.re = s->fractal.min.re + x *
+				s->fractal.factor.re ;
+			s->fractal.z = init_compl(s->fractal.c.re,
+					s->fractal.c.im);
+			iteration = 0;
+			while (pow(s->fractal.z.re, 2.0) +
+					pow(s->fractal.z.im, 2.0) <= 4
+					&& iteration < s->fractal.max_iteration)
+			{
+				// s->fractal.z = init_compl(
+				// 		pow(s->fractal.z.re, 2.0) -
+				// 		pow(s->fractal.z.im, 2.0) + s->fractal.c.re,
+				// 		2.0 * s->fractal.z.re * s->fractal.z.im +
+				// 		s->fractal.c.im);
+				s->fractal.z = init_compl(
+					pow(s->fractal.z.re, 2.0) -
+					pow(s->fractal.z.im, 2.0) + s->fractal.k.re,
+					2.0 * s->fractal.z.re * s->fractal.z.im +
+					s->fractal.k.im);
+				iteration++;
+			}
+			t = (double)iteration /
+				(double)s->fractal.max_iteration;
 
-// 			s->fractal.red = (int)(9 * (1 - s->fractal.t) *
-// 					pow(s->fractal.t, 3) * 255);
-// 			s->fractal.green = (int)(15 * pow((1 - s->fractal.t), 2) *
-// 					pow(s->fractal.t, 2) * 255);
-// 			s->fractal.blue = (int)(8.5 * pow((1 - s->fractal.t), 3) *
-// 					s->fractal.t * 255);
-// 			//Установка цвета точки
-// 			s->image.data[WIN_X * y + x] = s->fractal.red *
-// 				s->fractal.green * s->fractal.blue;
-// 			x++;
-// 		}
-// 		y++;
-// 	}
-// 	mlx_put_image_to_window(s->mlx_ptr, s->win_ptr,
-// 						s->image.ptr, 0, 0);
-// }
+			red = (int)(9 * (1 - t) * pow(t, 3) * 255);
+			green = (int)(15 * pow((1 - t), 2) * pow(t, 2) * 255);
+			blue = (int)(8.5 * pow((1 - t), 3) * t * 255);
+			//Установка цвета точки
+			s->image.data[WIN_X * y + x] = red * green * blue;
+			x++;
+		}
+		y++;
+	}
+	mlx_put_image_to_window(s->mlx_ptr, s->win_ptr,
+						s->image.ptr, 0, 0);
+}
 
 int				julia_motion(int x, int y, t_screen *s)
 {
@@ -507,15 +539,18 @@ int		main(int ac, char **av)
 	if (!(s = (t_screen *)malloc(sizeof(t_screen))))
 		ft_exit("Error: the memory hasn't been allocated.\n");
 	init(s);
-	init_cl(s);
-	draw(s);
+		 init_cl(s);
+	 draw(s);
+
+	// draw(s);
 
 //?	mlx_hook(fractol->window, 17, 0, close, fractol);
 	
 	mlx_hook(s->win_ptr, 2, 0, key_hook, s);
 	mlx_hook(s->win_ptr, 4, 0, mouse_hook, s);
-	mlx_loop(s->mlx_ptr);
+
 		mlx_hook(s->win_ptr, 6, 0, julia_motion, s);
+	mlx_loop(s->mlx_ptr);
 		write(1, "here", 4);
 	return (1);
 }
