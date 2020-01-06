@@ -1,5 +1,5 @@
-# define WIN_X 1000
-# define WIN_Y 1000
+# define WIN_X 1024
+# define WIN_Y 1024
 
 typedef	struct	s_compl
 {
@@ -17,5 +17,6 @@ typedef struct	s_fractal
 	t_compl		z;
 	t_compl		k;
 	char		fixed;
-	int 		threads;		
+	char		*function;
+	int 		number;
 }				t_fractal;

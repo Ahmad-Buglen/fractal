@@ -24,20 +24,19 @@
 
 # include "libft/libft.h"
 
-# define WIN_X 1024
-# define WIN_Y 1024
+# include "cl.h"
+
+typedef	struct	s_catalog
+{
+	int			number;
+	char		*name;
+}				t_catalog;
 
 typedef	struct	s_point
 {
 	int			x;
 	int			y;
 }				t_point;
-
-typedef	struct	s_compl
-{
-	double			im;
-	double			re;
-}				t_compl;
 
 typedef	struct	s_image
 {
@@ -64,18 +63,6 @@ typedef struct		s_opcl
 	cl_uint				dev_num;
 }					t_opcl;
 
-typedef struct	s_fractal
-{
-	int			max_iteration;
-	t_compl		min;
-	t_compl		max;
-	t_compl		factor;
-	t_compl		c;
-	t_compl		z;
-	t_compl		k;
-	char		fixed;
-	int 		threads;		
-}				t_fractal;
 
 typedef	struct	s_screen
 {
@@ -165,11 +152,12 @@ char	*load_src(char *path)
 }
 
 
+
 void	get_kernel(t_screen *s)
 {
 	int		ret;
 	char	buf[65536];
-	size_t len;
+	size_t 	len;
 
 	ret = clBuildProgram(s->opcl.program, 0,
 			NULL, NULL, NULL, NULL);
@@ -181,7 +169,7 @@ void	get_kernel(t_screen *s)
 		terminate(s, "Error: Failed to build program executable.");
 	}
 	if (!(s->opcl.kernel = clCreateKernel(s->opcl.program,
-			"draw", &ret)))
+			s->fractal.function, &ret)))
 		terminate(s, "Error: Failed to create compute kernel.");
 }
 
@@ -202,13 +190,6 @@ int		get_device(t_screen *s)
 	if ((ret |= clGetDeviceIDs(platformid,
 			CL_DEVICE_TYPE_GPU, dev_num, &s->opcl.dev, 0)) != CL_SUCCESS)
 		terminate(s, "Error: Failed to create a device group.");
-
-	// if ((ret = clGetPlatformIDs(1, &platformid, NULL)) != CL_SUCCESS)
-	// 	terminate(s, "Error: At obtain the list of platforms available.");
-	// if ((ret |= clGetDeviceIDs(platformid, CL_DEVICE_TYPE_GPU, \
-	// 		1, &s->opcl.dev, NULL)) != CL_SUCCESS)
-	// 	terminate(s, "Error: Failed to create a device group.");
-
 	return (1);
 }
 
@@ -226,18 +207,13 @@ int		init_cl(t_screen *s)
 		terminate(s, "Error: Failed to create a command commands.");
 	if (!(src = load_src("calc.cl")))
 		terminate(s, "Error: when reading a program.");
-	if (!(s->opcl.program =
-			clCreateProgramWithSource(s->opcl.context,
+	if (!(s->opcl.program =	clCreateProgramWithSource(s->opcl.context,
 					1, (const char**)&src, NULL, &ret)))
 		terminate(s, "Error: Failed to create compute program.");
 	free(src);
-
-		get_kernel(s);
-
-		int memLenth = 10;
-
+	get_kernel(s);
 	s->opcl.buf = clCreateBuffer(s->opcl.context,
-		CL_MEM_READ_ONLY, sizeof(cl_int) * WIN_X * WIN_Y, NULL, NULL);
+		CL_MEM_READ_ONLY, sizeof(int) * WIN_X * WIN_Y, NULL, NULL);
 	if (!s->opcl.buf)
     {
         printf("Error: Failed to allocate device memory!\n");
@@ -252,18 +228,8 @@ void		set_args(t_screen *s)
 {
 	cl_int		ret;
 
-	//double size = 256;
 	ret = clSetKernelArg(s->opcl.kernel, 0, sizeof(cl_mem), (void *)&s->opcl.buf);
-
 	ret = clSetKernelArg(s->opcl.kernel, 1, sizeof(t_fractal), (void *)&s->fractal);
-	// ret |= clSetKernelArg(s->opcl.kernel, 1, sizeof(double), &s->fractal.max.re);
-	// ret |= clSetKernelArg(s->opcl.kernel, 2, sizeof(double), &s->fractal.max.im);
-	// ret |= clSetKernelArg(s->opcl.kernel, 3, sizeof(double), &s->fractal.min.re);
-	// ret |= clSetKernelArg(s->opcl.kernel, 4, sizeof(double), &s->fractal.min.im);
-	// ret |= clSetKernelArg(s->opcl.kernel, 5, sizeof(int), &s->fractal.max_iteration);
-	// ret |= clSetKernelArg(s->opcl.kernel, 6, sizeof(double), &size);
-	// ret |= clSetKernelArg(s->opcl.kernel, 7, sizeof(double), &s->fractal.k.re);
-	// ret |= clSetKernelArg(s->opcl.kernel, 8, sizeof(double), &s->fractal.k.im);
 	if (ret != CL_SUCCESS)
 		terminate(s, "Error: At set the arguments values for kernel.");
 }
@@ -271,22 +237,19 @@ void		set_args(t_screen *s)
 void		execute_kernel(t_screen *s)
 {
 	int		ret;
-	//s->opcl.total_s = WIN_X * WIN_Y;
-//	s->opcl.local_s;		
-	 size_t globalT = WIN_X * WIN_Y;
+	s->opcl.total_s = WIN_X * WIN_Y;
 	set_args(s);
-//**?
-	int		err = 0;
-	 err = clGetKernelWorkGroupInfo( s->opcl.kernel, s->opcl.dev, CL_KERNEL_WORK_GROUP_SIZE,
+
+	ret = clGetKernelWorkGroupInfo( s->opcl.kernel, s->opcl.dev, CL_KERNEL_WORK_GROUP_SIZE,
 	 		sizeof(s->opcl.local_s), &s->opcl.local_s, NULL);
-    if (err != CL_SUCCESS)
+    if (ret != CL_SUCCESS)
     {
-        printf("Error: Failed to retrieve kernel work group info. %d\n", err);
+        printf("Error: Failed to retrieve kernel work group info. %d\n", ret);
         exit(1);
     }
 
 	ret = clEnqueueNDRangeKernel(s->opcl.queue, s->opcl.kernel, 1,
-			NULL, &globalT , &s->opcl.local_s, 0, NULL, NULL);
+			NULL, &s->opcl.total_s , &s->opcl.local_s, 0, NULL, NULL);
 	if (ret != CL_SUCCESS)
 		terminate(s, "Error: Failed to execute kernel.");
 }
@@ -294,7 +257,6 @@ void		execute_kernel(t_screen *s)
 
 void		draw(t_screen *s)
 {
-
 	ft_bzero(s->image.data, WIN_X * WIN_Y * 4);
 	mlx_clear_window(s->mlx_ptr, s->win_ptr);
 
@@ -306,40 +268,34 @@ void		draw(t_screen *s)
 	execute_kernel(s);
 
 	clEnqueueReadBuffer(s->opcl.queue, s->opcl.buf, CL_TRUE, 0,
-			sizeof(cl_int) * WIN_X * WIN_Y, s->image.data, 0, NULL, NULL);
+			sizeof(int) * WIN_X * WIN_Y, s->image.data, 0, NULL, NULL);
 	if (err != CL_SUCCESS)
     {
         printf("Error: Failed to read output array! %d\n", err);
         exit(1);
     }	
-    // clFlush(s->opcl.queue);
-	// clFinish(s->opcl.queue);
+    clFlush(s->opcl.queue);
+	clFinish(s->opcl.queue);
 
 	mlx_put_image_to_window(s->mlx_ptr, s->win_ptr, s->image.ptr, 0, 0);
 	//print_info(f);
 
-	// double size = 256;
-	// int gid = 0;
-	// int y = (int)((WIN_Y / size) * gid);
-	// while (gid < 256)
-	// {
-	// 	while (y <= (int)((WIN_Y / size) * (gid + 1)))
-	// 	{
-	// 		printf("%d ", y);
-	// 		++y;
-	// 	}
-	// 	printf(" - %d\n", gid++);
-	// }
-
-
-	mlx_do_sync(s->mlx_ptr); //???
+	//mlx_do_sync(s->mlx_ptr); //???
 }
-
-// 	//аргументы по ссылке или по значению передавать 
-// 	// по два вызова функций для чего 
-// 	// преобразование типов на вход и выход kernel
-// 	// написать простейший код 
-// 	// в чем разница cl типов 
+void 	reset(t_screen * s)
+{
+	s->fractal.min = init_compl(-2.0, -2.0);
+	s->fractal.max.re = 2.0;
+	s->fractal.max.im = s->fractal.min.im +
+		(s->fractal.max.re - s->fractal.min.re) * WIN_Y / WIN_X;
+	s->fractal.max_iteration = 50;
+	if (2 == s->fractal.number)
+	{
+		s->fractal.k = init_compl(-0.4, 0.6);
+		s->fractal.fixed = 0;
+		mlx_hook(s->win_ptr, 6, 0, julia_motion, s); // утечка?
+	}
+}
 
 void	init(t_screen * s)
 {
@@ -354,16 +310,7 @@ void	init(t_screen * s)
 	if (!(s->image.data = (int *)mlx_get_data_addr(s->image.ptr,
 		&s->image.bpp, &s->image.size_line, &s->image.endian)))
 		ft_exit("Error: mls_new_image failed.\n");
-	s->fractal.min.re = -2.0;
-	s->fractal.max.re = 2.0;
-	s->fractal.min.im = -2.0;
-	s->fractal.max.im = s->fractal.min.im +
-		(s->fractal.max.re - s->fractal.min.re) * WIN_Y / WIN_X;
-	s->fractal.max_iteration = 11;
-
-	s->fractal.k = init_compl(-0.4, 0.6);
-	s->fractal.threads = 256;
-	s->fractal.fixed = 0;
+	reset(s);
 }
 
 void draw1(t_screen * const s)
@@ -404,9 +351,9 @@ void draw1(t_screen * const s)
 				// 		s->fractal.c.im);
 				s->fractal.z = init_compl(
 					pow(s->fractal.z.re, 2.0) -
-					pow(s->fractal.z.im, 2.0) + s->fractal.k.re,
+					pow(s->fractal.z.im, 2.0) + s->fractal.c.re,
 					2.0 * s->fractal.z.re * s->fractal.z.im +
-					s->fractal.k.im);
+					s->fractal.c.im);
 				iteration++;
 			}
 			t = (double)iteration /
@@ -423,6 +370,31 @@ void draw1(t_screen * const s)
 	}
 	mlx_put_image_to_window(s->mlx_ptr, s->win_ptr,
 						s->image.ptr, 0, 0);
+}
+
+void set_fractal(t_screen *s, int number)
+{
+	if (1 == number)
+		s->fractal.function = "mandelbrot";
+	else if (2 == number)
+		s->fractal.function = "julia";
+	else if (3 == number)
+		s->fractal.function = "burning_ship";
+	else if (4 == number)
+		s->fractal.function = "mandelbar";
+	else if (5 == number)
+		s->fractal.function = "celtic_mandelbrot";
+	else if (6 == number)
+		s->fractal.function = "celtic_mandelbar";
+	else if (7 == number)
+		s->fractal.function = "celtic_perpendicular";
+	else if (8 == number)
+		s->fractal.function = "perpendicular_mandelbrot";
+	else if (9 == number)
+		s->fractal.function = "perpendicular_burning_ship";
+	else if (10 == number)
+		s->fractal.function = "perpendicular_buffalo";
+	s->fractal.number = number;
 }
 
 int				julia_motion(int x, int y, t_screen *s)
@@ -520,7 +492,27 @@ int     key_hook(const  int keycode, t_screen * const s)
 	}
 	else if (3 == keycode)
 	{
-		s->fractal.fixed = 1;
+		s->fractal.fixed = (s->fractal.fixed) ? 0 : 1;
+	}
+	else if (35 == keycode)
+	{
+		reset(s);
+		if (1 == s->fractal.number)
+			s->fractal.number = 10;
+		else 
+			s->fractal.number -= 1;
+		set_fractal(s, s->fractal.number);
+		draw(s);
+	}
+	else if (45 == keycode)
+	{
+		reset(s);
+		if (10 == s->fractal.number)
+			s->fractal.number = 1;
+		else 
+			s->fractal.number += 1;
+		set_fractal(s, s->fractal.number);
+		draw(s);
 	}
 	else if ((keycode >= 123) && (keycode <= 126))
 	{
@@ -529,27 +521,56 @@ int     key_hook(const  int keycode, t_screen * const s)
 	return (1);
 }
 
+void	ft_usage(int ac, char **av)
+{	
+	ft_putendl("Usage:");
+	ft_putendl("1:\tMandelbrot");
+	ft_putendl("2:\tJulia");
+	ft_putendl("3:\tBurning ship");
+	ft_putendl("4:\tMandelbar");
+	ft_putendl("5:\tCeltic Mandelbrot");
+	ft_putendl("6:\tCeltic Mandelbar");
+	ft_putendl("7:\tCeltic perpendicular");
+	ft_putendl("8:\tPerpendicular Mandelbrot");
+	ft_putendl("9:\tPerpendicular burning ship");
+	ft_putendl("10:\tPerpendicular buffalo");
+	exit(0);
+}
+
+// mandelbrot
+// julia
+// burning_ship
+// mandelbar
+// celtic_mandelbrot
+// celtic_mandelbar
+// celtic_perpendicular
+// perpendicular_mandelbrot
+// perpendicular_burning_ship
+// perpendicular_buffalo
+
 int		main(int ac, char **av)
 {
 	t_screen	*s;
 	int			fd;
 
-//	if (2 != ac)
-//		ft_exit("1");
+	if ((2 != ac) || ((ft_atoi(av[1]) < 1) || (ft_atoi(av[1]) > 10))) 
+		ft_usage(ac, av);
+
 	if (!(s = (t_screen *)malloc(sizeof(t_screen))))
 		ft_exit("Error: the memory hasn't been allocated.\n");
+	set_fractal(s, ft_atoi(av[1]));
+
+
+
+
 	init(s);
 		 init_cl(s);
 	 draw(s);
-
-	// draw(s);
 
 //?	mlx_hook(fractol->window, 17, 0, close, fractol);
 	
 	mlx_hook(s->win_ptr, 2, 0, key_hook, s);
 	mlx_hook(s->win_ptr, 4, 0, mouse_hook, s);
-
-		mlx_hook(s->win_ptr, 6, 0, julia_motion, s);
 	mlx_loop(s->mlx_ptr);
 		write(1, "here", 4);
 	return (1);
