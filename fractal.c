@@ -73,6 +73,7 @@ typedef	struct	s_screen
 	t_image		image;
 	t_fractal	fractal;
 	t_opcl		opcl;
+	int 		info;
 }				t_screen;
 
 void		ft_putstr_fd(char const *s, int fd)
@@ -254,6 +255,31 @@ void		execute_kernel(t_screen *s)
 		terminate(s, "Error: Failed to execute kernel.");
 }
 
+void	ft_menu(t_screen *const s)
+{
+	mlx_string_put(s->mlx_ptr, s->win_ptr, WIN_Y / 20, 5,
+			0xFC1414, "Instruction:");
+	mlx_string_put(s->mlx_ptr, s->win_ptr, 20, 25, 0x7DCCBD, 
+		ft_strjoin("fractal name: ", s->fractal.function));
+	mlx_string_put(s->mlx_ptr, s->win_ptr, 20, 50, 0x4FA833, 
+		ft_strjoin("iteration count: ", ft_itoa(s->fractal.max_iteration)));
+	mlx_string_put(s->mlx_ptr, s->win_ptr, 20, 75,
+			0xFFAB59, "N(next), P(prev) change fractal");
+	mlx_string_put(s->mlx_ptr, s->win_ptr, 20, 100,
+			0xFA4F29, "key C for change color;");
+	mlx_string_put(s->mlx_ptr, s->win_ptr, 20, 125,
+			0x1A7A63, "srrows for move;");
+	mlx_string_put(s->mlx_ptr, s->win_ptr, 20, 150,
+			0xFF7521, "scroll for zoom;");
+	mlx_string_put(s->mlx_ptr, s->win_ptr, 20, 175,
+			0xC98721, "space for return to basic;");
+	mlx_string_put(s->mlx_ptr, s->win_ptr, 20, 200,
+			0x9C4529, "key i for remove menu;");
+	mlx_string_put(s->mlx_ptr, s->win_ptr, 20, 225,
+		0x389482, "+/- for change max iteration;");
+	mlx_string_put(s->mlx_ptr, s->win_ptr, 20, 250,
+			0xBA2E21, "key esc for exit.");
+}
 
 void		draw(t_screen *s)
 {
@@ -278,10 +304,24 @@ void		draw(t_screen *s)
 	clFinish(s->opcl.queue);
 
 	mlx_put_image_to_window(s->mlx_ptr, s->win_ptr, s->image.ptr, 0, 0);
+	if (s->info)
+		ft_menu(s);
 	//print_info(f);
 
 	//mlx_do_sync(s->mlx_ptr); //???
 }
+
+int				julia_motion(int x, int y, t_screen *s)
+{
+	if (!s->fractal.fixed)
+	{
+		s->fractal.k.re = 4 * ((double)x / WIN_X - 0.5),
+		s->fractal.k.im	= 4 * ((double)(WIN_Y - y) / WIN_Y - 0.5);
+		draw(s);
+	}
+	return (0);
+}
+
 void 	reset(t_screen * s)
 {
 	s->fractal.min = init_compl(-2.0, -2.0);
@@ -293,8 +333,8 @@ void 	reset(t_screen * s)
 	{
 		s->fractal.k = init_compl(-0.4, 0.6);
 		s->fractal.fixed = 0;
-		mlx_hook(s->win_ptr, 6, 0, julia_motion, s); // утечка?
 	}
+	s->fractal.color = 0;
 }
 
 void	init(t_screen * s)
@@ -310,6 +350,8 @@ void	init(t_screen * s)
 	if (!(s->image.data = (int *)mlx_get_data_addr(s->image.ptr,
 		&s->image.bpp, &s->image.size_line, &s->image.endian)))
 		ft_exit("Error: mls_new_image failed.\n");
+	s->info = 0;
+	s->fractal.color = 0;
 	reset(s);
 }
 
@@ -372,6 +414,8 @@ void draw1(t_screen * const s)
 						s->image.ptr, 0, 0);
 }
 
+
+
 void set_fractal(t_screen *s, int number)
 {
 	if (1 == number)
@@ -397,16 +441,6 @@ void set_fractal(t_screen *s, int number)
 	s->fractal.number = number;
 }
 
-int				julia_motion(int x, int y, t_screen *s)
-{
-	if (!s->fractal.fixed)
-	{
-		s->fractal.k.re = 4 * ((double)x / WIN_X - 0.5),
-		s->fractal.k.im	= 4 * ((double)(WIN_Y - y) / WIN_Y - 0.5);
-		draw(s);
-	}
-	return (0);
-}
 
 double	interpolate(double start, double end, double interpolation)
 {
@@ -477,6 +511,8 @@ static void	move(int key, t_screen *s)
 
 int     key_hook(const  int keycode, t_screen * const s)
 {
+	int ret;
+
 	printf("keycode = %d\n", keycode);
 	if (53 == keycode)
 		exit(0);
@@ -494,6 +530,19 @@ int     key_hook(const  int keycode, t_screen * const s)
 	{
 		s->fractal.fixed = (s->fractal.fixed) ? 0 : 1;
 	}
+	else if (8 == keycode)
+	{
+		if (3 == s->fractal.color)
+			s->fractal.color = 0;
+		else 
+			s->fractal.color += 1;
+		draw(s);
+	}
+	else if (34 == keycode)
+	{
+		s->info = (s->info) ? 0 : 1;
+		draw(s);
+	}
 	else if (35 == keycode)
 	{
 		reset(s);
@@ -502,6 +551,9 @@ int     key_hook(const  int keycode, t_screen * const s)
 		else 
 			s->fractal.number -= 1;
 		set_fractal(s, s->fractal.number);
+		if (!(s->opcl.kernel = clCreateKernel(s->opcl.program,
+			s->fractal.function, &ret)))
+			terminate(s, "Error: Failed to create compute kernel.");
 		draw(s);
 	}
 	else if (45 == keycode)
@@ -512,12 +564,18 @@ int     key_hook(const  int keycode, t_screen * const s)
 		else 
 			s->fractal.number += 1;
 		set_fractal(s, s->fractal.number);
+		if (!(s->opcl.kernel = clCreateKernel(s->opcl.program,
+			s->fractal.function, &ret)))
+			terminate(s, "Error: Failed to create compute kernel.");
+		draw(s);
+	}
+	else if (49 == keycode)
+	{
+		reset(s);
 		draw(s);
 	}
 	else if ((keycode >= 123) && (keycode <= 126))
-	{
 		move(keycode, s);
-	}
 	return (1);
 }
 
@@ -570,6 +628,8 @@ int		main(int ac, char **av)
 //?	mlx_hook(fractol->window, 17, 0, close, fractol);
 	
 	mlx_hook(s->win_ptr, 2, 0, key_hook, s);
+
+	mlx_hook(s->win_ptr, 6, 0, julia_motion, s); // утечка?
 	mlx_hook(s->win_ptr, 4, 0, mouse_hook, s);
 	mlx_loop(s->mlx_ptr);
 		write(1, "here", 4);

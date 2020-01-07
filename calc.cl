@@ -3,6 +3,7 @@
 int choose_color(int i, int max, int color);
 int set_colors(unsigned char o, unsigned char red, \
 				unsigned char green, unsigned char blue);
+int	ft_abs(int x);
 
 int set_colors(unsigned char o, unsigned char red, \
 				unsigned char green, unsigned char blue)
@@ -42,16 +43,16 @@ int choose_color(int i, int max, int color)
 	double		n;
 
 	n = (double)i / (double)max;
-	red = (int)(9 * (1 - n) * pow(n, 3) * 255);
-	green = (int)(15 * pow((1 - n), 2) * pow(n, 2) * 255);
-	blue = (int)(8.5 * pow((1 - n), 3) * n * 255);
-	if (color == 1)
+	red = (int)(9 * (1 - n) * (n * n * n) * 255);
+	green = (int)(15 * ((1 - n) * (1 - n)) * (n * n) * 255);
+	blue = (int)(8.5 * ((1 - n) * (1 - n) * (1 - n)) * n * 255);
+	if (1 == color)
 		return (set_colors(0, red, blue, green));
-	else if (color == 0)
+	else if (0 == color)
 		return (set_colors(0, blue, green, red));
-	else if (color == 2)
+	else if (2 == color)
 		return (set_colors(0, blue, red, green));
-	else if (color == 3)
+	else if (3 == color)
 		return (set_colors(0, red, green, blue));
 	return (0);
 }
@@ -113,7 +114,7 @@ __kernel void julia(__global int *data, t_fractal f)
 		++iteration;
 	}
 	if (iteration <  f.max_iteration)
- 	    data[gid] = choose_color(iteration, f.max_iteration, 0);
+ 	    data[gid] = choose_color(iteration, f.max_iteration, f.color);
  	else
         data[gid] = 0;
 }
@@ -141,7 +142,7 @@ __kernel void burning_ship(__global int *data, t_fractal f)
 		++iteration;
 	}
 	if (iteration <  f.max_iteration)
- 	    data[gid] = choose_color(iteration, f.max_iteration, 0);
+ 	    data[gid] = choose_color(iteration, f.max_iteration, f.color);
  	else
         data[gid] = 0;
 }
@@ -169,7 +170,7 @@ __kernel void mandelbar(__global int *data, t_fractal f)
 		++iteration;	
 	}
 	if (iteration <  f.max_iteration)
- 	    data[gid] = choose_color(iteration, f.max_iteration, 0);
+ 	    data[gid] = choose_color(iteration, f.max_iteration, f.color);
  	else
         data[gid] = 0;
 }
@@ -197,7 +198,35 @@ __kernel void celtic_mandelbrot(__global int *data, t_fractal f)
 		++iteration;	
 	}
 	if (iteration <  f.max_iteration)
- 	    data[gid] = choose_color(iteration, f.max_iteration, 0);
+ 	    data[gid] = choose_color(iteration, f.max_iteration, f.color);
+ 	else
+        data[gid] = 0;
+}
+
+__kernel void celtic_mandelbar(__global int *data, t_fractal f)
+{
+	int			iteration;
+	int			x;
+	int			y;
+	int 		gid;
+
+ 	gid = get_global_id(0);
+    x = gid % WIN_X;
+	y = gid / WIN_Y;
+	f.c.im = f.max.im - y * f.factor.im;
+	f.c.re = f.min.re + x *	f.factor.re;
+	f.z.re = f.c.re;
+	f.z.im = f.c.im;
+	iteration = 0;
+	while ((f.z.re * f.z.re) + (f.z.im * f.z.im) <= 4
+			&& iteration < f.max_iteration)
+	{
+		f.z.re = ft_abs((f.z.re * f.z.re) - (f.z.im * f.z.im)) + f.c.re;
+		f.z.im = -2.0 * f.z.re * f.z.im + f.c.im;
+		++iteration;	
+	}
+	if (iteration <  f.max_iteration)
+ 	    data[gid] = choose_color(iteration, f.max_iteration, f.color);
  	else
         data[gid] = 0;
 }
@@ -225,7 +254,7 @@ __kernel void celtic_perpendicular(__global int *data, t_fractal f)
 		++iteration;	
 	}
 	if (iteration <  f.max_iteration)
- 	    data[gid] = choose_color(iteration, f.max_iteration, 0);
+ 	    data[gid] = choose_color(iteration, f.max_iteration, f.color);
  	else
         data[gid] = 0;
 }
@@ -253,7 +282,7 @@ __kernel void perpendicular_mandelbrot(__global int *data, t_fractal f)
 		++iteration;	
 	}
 	if (iteration <  f.max_iteration)
- 	    data[gid] = choose_color(iteration, f.max_iteration, 0);
+ 	    data[gid] = choose_color(iteration, f.max_iteration, f.color);
  	else
         data[gid] = 0;
 }
@@ -281,7 +310,7 @@ __kernel void perpendicular_burning_ship(__global int *data, t_fractal f)
 		++iteration;	
 	}
 	if (iteration <  f.max_iteration)
- 	    data[gid] = choose_color(iteration, f.max_iteration, 0);
+ 	    data[gid] = choose_color(iteration, f.max_iteration, f.color);
  	else
         data[gid] = 0;
 }
@@ -309,7 +338,7 @@ __kernel void perpendicular_buffalo(__global int *data, t_fractal f)
 		++iteration;	
 	}
 	if (iteration <  f.max_iteration)
- 	    data[gid] = choose_color(iteration, f.max_iteration, 0);
+ 	    data[gid] = choose_color(iteration, f.max_iteration, f.color);
  	else
         data[gid] = 0;
 }

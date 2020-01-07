@@ -19,4 +19,5 @@ typedef struct	s_fractal
 	char		fixed;
 	char		*function;
 	int 		number;
+	int 		color;
 }				t_fractal;
