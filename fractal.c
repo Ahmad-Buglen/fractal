@@ -15,22 +15,13 @@
 # include <stdio.h>
 # include <math.h>
 # include "mlx.h"
-
 # ifdef __APPLE__
 #  include <OpenCL/opencl.h>
 # else
 #  include <CL/cl.h>
 # endif
-
 # include "libft/libft.h"
-
 # include "cl.h"
-
-typedef	struct	s_catalog
-{
-	int			number;
-	char		*name;
-}				t_catalog;
 
 typedef	struct	s_point
 {
@@ -54,15 +45,10 @@ typedef struct		s_opcl
 	cl_context			context;
 	cl_program			program;
 	cl_kernel			kernel;
-
 	cl_mem				buf;
 	size_t				total_s;
 	size_t				local_s;
-	cl_platform_id		platformid;
-	cl_uint				pltf_num;
-	cl_uint				dev_num;
 }					t_opcl;
-
 
 typedef	struct	s_screen
 {
@@ -76,27 +62,11 @@ typedef	struct	s_screen
 	int 		info;
 }				t_screen;
 
-void		ft_putstr_fd(char const *s, int fd)
-{
-	size_t	i;
-
-	if (s && (fd >= 0))
-	{
-		i = 0;
-		while (s[i] != '\0')
-		{
-			write(fd, &s[i], 1);
-			++i;
-		}
-	}
-}
-
 void    ft_exit(const char *const str)
 {
-	ft_putstr_fd(str, 2);
+	ft_putendl(str);
 	exit(0);
 }
-
 
 t_compl init_compl(double re, double im)
 {
@@ -118,11 +88,13 @@ void		free_cl(t_screen *s)
 
 void		terminate(t_screen *s, char *str)
 {
-	ft_putstr(str);
-//	if (flag == CL_ERROR)
-//		ft_putendl("OpenCL Error");
-//	else if (flag == STD_ERROR)
-//		ft_putendl("File read Error");
+	ft_putendl(str);
+	free_cl(s);
+	exit(0);
+}
+
+int	ft_close(void *s)
+{
 	free_cl(s);
 	exit(0);
 }
@@ -174,7 +146,7 @@ void	get_kernel(t_screen *s)
 		terminate(s, "Error: Failed to create compute kernel.");
 }
 
-int		get_device(t_screen *s)
+void		get_device(t_screen *s)
 {
 	int					ret;
 	cl_platform_id		platformid;
@@ -191,7 +163,6 @@ int		get_device(t_screen *s)
 	if ((ret |= clGetDeviceIDs(platformid,
 			CL_DEVICE_TYPE_GPU, dev_num, &s->opcl.dev, 0)) != CL_SUCCESS)
 		terminate(s, "Error: Failed to create a device group.");
-	return (1);
 }
 
 int		init_cl(t_screen *s)
@@ -199,8 +170,7 @@ int		init_cl(t_screen *s)
 	int			ret;
 	char		*src;
 
-	if (!(get_device(s)))
-		return (0);
+	get_device(s);
 	if (!(s->opcl.context = clCreateContext(0, 1, &s->opcl.dev, NULL, NULL, &ret)))
 		terminate(s, "Error: Failed to create a compute context.");
 	if (!(s->opcl.queue = clCreateCommandQueue(s->opcl.context,
@@ -223,32 +193,18 @@ int		init_cl(t_screen *s)
 	return (1);
 }
 
-
-
-void		set_args(t_screen *s)
+void		execute_kernel(t_screen *s)
 {
-	cl_int		ret;
+	int		ret;
 
 	ret = clSetKernelArg(s->opcl.kernel, 0, sizeof(cl_mem), (void *)&s->opcl.buf);
 	ret = clSetKernelArg(s->opcl.kernel, 1, sizeof(t_fractal), (void *)&s->fractal);
 	if (ret != CL_SUCCESS)
 		terminate(s, "Error: At set the arguments values for kernel.");
-}
-
-void		execute_kernel(t_screen *s)
-{
-	int		ret;
-	s->opcl.total_s = WIN_X * WIN_Y;
-	set_args(s);
-
 	ret = clGetKernelWorkGroupInfo( s->opcl.kernel, s->opcl.dev, CL_KERNEL_WORK_GROUP_SIZE,
 	 		sizeof(s->opcl.local_s), &s->opcl.local_s, NULL);
     if (ret != CL_SUCCESS)
-    {
-        printf("Error: Failed to retrieve kernel work group info. %d\n", ret);
-        exit(1);
-    }
-
+		terminate(s, "Error: Failed to retrieve kernel work group info.");
 	ret = clEnqueueNDRangeKernel(s->opcl.queue, s->opcl.kernel, 1,
 			NULL, &s->opcl.total_s , &s->opcl.local_s, 0, NULL, NULL);
 	if (ret != CL_SUCCESS)
@@ -283,37 +239,32 @@ void	ft_menu(t_screen *const s)
 
 void		draw(t_screen *s)
 {
-	ft_bzero(s->image.data, WIN_X * WIN_Y * 4);
-	mlx_clear_window(s->mlx_ptr, s->win_ptr);
+	int		ret;
 
-	int		err = 0;
-	
+	//printf(" %d ", s->fractal.color);
+	ft_bzero(s->image.data, WIN_X * WIN_Y * 4);
+	mlx_clear_window(s->mlx_ptr, s->win_ptr);	
 	s->fractal.factor.re = (s->fractal.max.re - s->fractal.min.re) / (WIN_X - 1);
 	s->fractal.factor.im = (s->fractal.max.im - s->fractal.min.im) / (WIN_Y - 1);
-
 	execute_kernel(s);
-
-	clEnqueueReadBuffer(s->opcl.queue, s->opcl.buf, CL_TRUE, 0,
-			sizeof(int) * WIN_X * WIN_Y, s->image.data, 0, NULL, NULL);
-	if (err != CL_SUCCESS)
-    {
-        printf("Error: Failed to read output array! %d\n", err);
-        exit(1);
-    }	
+	ret = clEnqueueReadBuffer(s->opcl.queue, s->opcl.buf, CL_TRUE, 0,
+			sizeof(int) * WIN_X * WIN_Y, s->image.data, 0, NULL, NULL);	
+    if (ret != CL_SUCCESS)
+		terminate(s, "Error: Failed to read output array.");
     clFlush(s->opcl.queue);
 	clFinish(s->opcl.queue);
-
+//	ft_putnbr((int)s->image.data[WIN_X * WIN_Y]);
 	mlx_put_image_to_window(s->mlx_ptr, s->win_ptr, s->image.ptr, 0, 0);
 	if (s->info)
 		ft_menu(s);
-	//print_info(f);
 
+//	printf(" %d ", s->image.data[WIN_X * WIN_Y]);
 	//mlx_do_sync(s->mlx_ptr); //???
 }
 
 int				julia_motion(int x, int y, t_screen *s)
 {
-	if (!s->fractal.fixed)
+	if (s->fractal.julia && !s->fractal.fixed)
 	{
 		s->fractal.k.re = 4 * ((double)x / WIN_X - 0.5),
 		s->fractal.k.im	= 4 * ((double)(WIN_Y - y) / WIN_Y - 0.5);
@@ -333,8 +284,9 @@ void 	reset(t_screen * s)
 	{
 		s->fractal.k = init_compl(-0.4, 0.6);
 		s->fractal.fixed = 0;
+		s->fractal.julia = 1;
 	}
-	s->fractal.color = 0;
+	s->fractal.color = 2;
 }
 
 void	init(t_screen * s)
@@ -344,77 +296,15 @@ void	init(t_screen * s)
 	if (!(s->win_ptr = mlx_new_window(s->mlx_ptr,
 					WIN_X, WIN_Y, "asdf")))
 		ft_exit("Error: mlx_new_window failed.\n");
-	
 	if (!(s->image.ptr = mlx_new_image(s->mlx_ptr, WIN_X, WIN_Y)))
 		ft_exit("Error: mls_new_image failed.\n");
 	if (!(s->image.data = (int *)mlx_get_data_addr(s->image.ptr,
 		&s->image.bpp, &s->image.size_line, &s->image.endian)))
 		ft_exit("Error: mls_new_image failed.\n");
+	s->opcl.total_s = WIN_X * WIN_Y;
 	s->info = 0;
-	s->fractal.color = 0;
 	reset(s);
 }
-
-void draw1(t_screen * const s)
-{
-	int			iteration;
-	int			x;
-	int			y;
-	double		t;
-	double		red;
-	double		green;
-	double		blue;
-
-	s->fractal.factor = init_compl(
-			(s->fractal.max.re - s->fractal.min.re) / (WIN_X - 1),
-			(s->fractal.max.im - s->fractal.min.im) / (WIN_Y - 1));
-
-	y = 0;
-	while (y < WIN_Y)
-	{
-		s->fractal.c.im = s->fractal.max.im - y *
-			s->fractal.factor.im;
-		x = 0;
-		while (x < WIN_X)
-		{
-			s->fractal.c.re = s->fractal.min.re + x *
-				s->fractal.factor.re ;
-			s->fractal.z = init_compl(s->fractal.c.re,
-					s->fractal.c.im);
-			iteration = 0;
-			while (pow(s->fractal.z.re, 2.0) +
-					pow(s->fractal.z.im, 2.0) <= 4
-					&& iteration < s->fractal.max_iteration)
-			{
-				// s->fractal.z = init_compl(
-				// 		pow(s->fractal.z.re, 2.0) -
-				// 		pow(s->fractal.z.im, 2.0) + s->fractal.c.re,
-				// 		2.0 * s->fractal.z.re * s->fractal.z.im +
-				// 		s->fractal.c.im);
-				s->fractal.z = init_compl(
-					pow(s->fractal.z.re, 2.0) -
-					pow(s->fractal.z.im, 2.0) + s->fractal.c.re,
-					2.0 * s->fractal.z.re * s->fractal.z.im +
-					s->fractal.c.im);
-				iteration++;
-			}
-			t = (double)iteration /
-				(double)s->fractal.max_iteration;
-
-			red = (int)(9 * (1 - t) * pow(t, 3) * 255);
-			green = (int)(15 * pow((1 - t), 2) * pow(t, 2) * 255);
-			blue = (int)(8.5 * pow((1 - t), 3) * t * 255);
-			//Установка цвета точки
-			s->image.data[WIN_X * y + x] = red * green * blue;
-			x++;
-		}
-		y++;
-	}
-	mlx_put_image_to_window(s->mlx_ptr, s->win_ptr,
-						s->image.ptr, 0, 0);
-}
-
-
 
 void set_fractal(t_screen *s, int number)
 {
@@ -447,7 +337,7 @@ double	interpolate(double start, double end, double interpolation)
 	return (start + ((end - start) * interpolation));
 }
 
-int		mouse_hook(const  int keycode, int x, int y,	t_screen * const s)
+int		mouse_hook(const  int keycode, int x, int y, t_screen * const s)
 {
 	t_compl		mouse;
 	double		interpolation;
@@ -516,27 +406,25 @@ int     key_hook(const  int keycode, t_screen * const s)
 	printf("keycode = %d\n", keycode);
 	if (53 == keycode)
 		exit(0);
+	else if (8 == keycode)
+	{
+		s->fractal.color = (3 == s->fractal.color) ?
+			0 : s->fractal.color + 1;
+		draw(s);
+	}
 	else if (69 == keycode)
 	{
-		s->fractal.max_iteration += 1;
+		s->fractal.max_iteration += 10;
 		draw(s);
 	}
 	else if (78 == keycode)
 	{
-		s->fractal.max_iteration -= 1;
+		s->fractal.max_iteration -= 10;
 		draw(s);
 	}
 	else if (3 == keycode)
 	{
 		s->fractal.fixed = (s->fractal.fixed) ? 0 : 1;
-	}
-	else if (8 == keycode)
-	{
-		if (3 == s->fractal.color)
-			s->fractal.color = 0;
-		else 
-			s->fractal.color += 1;
-		draw(s);
 	}
 	else if (34 == keycode)
 	{
@@ -545,12 +433,12 @@ int     key_hook(const  int keycode, t_screen * const s)
 	}
 	else if (35 == keycode)
 	{
-		reset(s);
 		if (1 == s->fractal.number)
 			s->fractal.number = 10;
 		else 
 			s->fractal.number -= 1;
 		set_fractal(s, s->fractal.number);
+		reset(s);
 		if (!(s->opcl.kernel = clCreateKernel(s->opcl.program,
 			s->fractal.function, &ret)))
 			terminate(s, "Error: Failed to create compute kernel.");
@@ -558,12 +446,12 @@ int     key_hook(const  int keycode, t_screen * const s)
 	}
 	else if (45 == keycode)
 	{
-		reset(s);
 		if (10 == s->fractal.number)
 			s->fractal.number = 1;
 		else 
 			s->fractal.number += 1;
 		set_fractal(s, s->fractal.number);
+		reset(s);
 		if (!(s->opcl.kernel = clCreateKernel(s->opcl.program,
 			s->fractal.function, &ret)))
 			terminate(s, "Error: Failed to create compute kernel.");
@@ -595,17 +483,6 @@ void	ft_usage(int ac, char **av)
 	exit(0);
 }
 
-// mandelbrot
-// julia
-// burning_ship
-// mandelbar
-// celtic_mandelbrot
-// celtic_mandelbar
-// celtic_perpendicular
-// perpendicular_mandelbrot
-// perpendicular_burning_ship
-// perpendicular_buffalo
-
 int		main(int ac, char **av)
 {
 	t_screen	*s;
@@ -618,18 +495,13 @@ int		main(int ac, char **av)
 		ft_exit("Error: the memory hasn't been allocated.\n");
 	set_fractal(s, ft_atoi(av[1]));
 
-
-
-
 	init(s);
-		 init_cl(s);
-	 draw(s);
+	init_cl(s);
+	draw(s);
 
-//?	mlx_hook(fractol->window, 17, 0, close, fractol);
-	
+	mlx_hook(s->win_ptr, 17, 0, ft_close, s);
 	mlx_hook(s->win_ptr, 2, 0, key_hook, s);
-
-	mlx_hook(s->win_ptr, 6, 0, julia_motion, s); // утечка?
+	mlx_hook(s->win_ptr, 6, 0, julia_motion, s);
 	mlx_hook(s->win_ptr, 4, 0, mouse_hook, s);
 	mlx_loop(s->mlx_ptr);
 		write(1, "here", 4);

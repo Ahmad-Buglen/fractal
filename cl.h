@@ -17,6 +17,7 @@ typedef struct	s_fractal
 	t_compl		z;
 	t_compl		k;
 	char		fixed;
+	char		julia;
 	char		*function;
 	int 		number;
 	int 		color;
