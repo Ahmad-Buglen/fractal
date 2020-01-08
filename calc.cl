@@ -1,10 +1,5 @@
 #include "cl.h"
 
-int choose_color(int i, int max, int color);
-int set_colors(unsigned char o, unsigned char red, \
-				unsigned char green, unsigned char blue);
-double	ft_abs(double x);
-
 int set_colors(unsigned char o, unsigned char red, \
 				unsigned char green, unsigned char blue)
 {
@@ -35,7 +30,7 @@ int set_colors(unsigned char o, unsigned char red, \
 	return (res);
 }
 
-int choose_color(int i, int max, int color)
+int choose_color(int i, int max, char color)
 {
 	int			red;
 	int			blue;
@@ -53,7 +48,7 @@ int choose_color(int i, int max, int color)
 	else if (2 == color)
 		return (set_colors(0, blue, red, green));
 	else if (1 == color)
-		return (set_colors(0, red, blue, green));
+	 	return (set_colors(0, red, blue, green));
 	return (0);
 }
 
@@ -62,23 +57,13 @@ double	ft_abs(double x)
 	return ((x < 0) ? -x : x);
 }
 
-__kernel void mandelbrot(__global int *data, t_fractal f)
+__kernel void mandelbrot(__global int *data, t_fractal f, int color)
 {
 	int			iteration;
 	int			x;
 	int			y;
 	int 		gid;
 	double		tmp;
-
-	// double		t;
-	// double		red;
-	// double		green;
-	// double		blue;
-
-	int			red;
-	int			blue;
-	int			green;
-	double		n;
 
  	gid = get_global_id(0);
     x = gid % WIN_X;
@@ -96,35 +81,14 @@ __kernel void mandelbrot(__global int *data, t_fractal f)
 		f.z.re = (f.z.re * f.z.re) - (tmp * tmp) + f.c.re;
 		++iteration;
 	}
-	// t = (double)iteration / (double)f.max_iteration;
-
-	// red = (int)(9 * (1 - t) * pow(t, 3) * 255);
-	// green = (int)(15 * pow((1 - t), 2) * pow(t, 2) * 255);
-	// blue = (int)(8.5 * pow((1 - t), 3) * t * 255);
-	// data[gid] = red * green * blue;
-
 	if (iteration <  f.max_iteration)
- 		data[gid] = choose_color(iteration, f.max_iteration, f.color);
+ 		data[gid] = choose_color(iteration, f.max_iteration, color);
  	else
         data[gid] = 0;
-
-	// n = (double)iteration / (double)f.max_iteration;
-	// red = (int)(9 * (1 - n) * (n * n * n) * 255);
-	// green = (int)(15 * ((1 - n) * (1 - n)) * (n * n) * 255);
-	// blue = (int)(8.5 * ((1 - n) * (1 - n) * (1 - n)) * n * 255);
-	// if (1 == f.color)
-	// 	data[gid] = (set_colors(0, red, green, blue));
-	// else if (0 == f.color)
-	// 	data[gid] =  (set_colors(0, blue, green, red));
-	// else if (2 == f.color)
-	// 	data[gid] =  (set_colors(0, blue, red, green));
-	// else if (1 == f.color)
-	// 	data[gid] =  (set_colors(0, red, blue, green));
-	//return (0);
 }
 
 
-__kernel void julia(__global int *data, t_fractal f)
+__kernel void julia(__global int *data, t_fractal f, int color)
 {
 	int			iteration;
 	int			x;
@@ -149,12 +113,12 @@ __kernel void julia(__global int *data, t_fractal f)
 		++iteration;
 	}
 	if (iteration <  f.max_iteration)
- 	    data[gid] = choose_color(iteration, f.max_iteration, f.color);
+ 	    data[gid] = choose_color(iteration, f.max_iteration, color);
  	else
         data[gid] = 0;
 }
 
-__kernel void burning_ship(__global int *data, t_fractal f)
+__kernel void burning_ship(__global int *data, t_fractal f, int color)
 {
 	int			iteration;
 	int			x;
@@ -179,12 +143,12 @@ __kernel void burning_ship(__global int *data, t_fractal f)
 		++iteration;
 	}
 	if (iteration <  f.max_iteration)
- 	    data[gid] = choose_color(iteration, f.max_iteration, f.color);
+ 	    data[gid] = choose_color(iteration, f.max_iteration, color);
  	else
         data[gid] = 0;
 }
 
-__kernel void mandelbar(__global int *data, t_fractal f)
+__kernel void mandelbar(__global int *data, t_fractal f, int color)
 {
 	int			iteration;
 	int			x;
@@ -209,12 +173,12 @@ __kernel void mandelbar(__global int *data, t_fractal f)
 		++iteration;	
 	}
 	if (iteration <  f.max_iteration)
- 	    data[gid] = choose_color(iteration, f.max_iteration, f.color);
+ 	    data[gid] = choose_color(iteration, f.max_iteration, color);
  	else
         data[gid] = 0;
 }
 
-__kernel void celtic_mandelbrot(__global int *data, t_fractal f)
+__kernel void celtic_mandelbrot(__global int *data, t_fractal f, int color)
 {
 	int			iteration;
 	int			x;
@@ -239,12 +203,12 @@ __kernel void celtic_mandelbrot(__global int *data, t_fractal f)
 		++iteration;	
 	}
 	if (iteration <  f.max_iteration)
- 	    data[gid] = choose_color(iteration, f.max_iteration, f.color);
+ 	    data[gid] = choose_color(iteration, f.max_iteration, color);
  	else
         data[gid] = 0;
 }
 
-__kernel void celtic_mandelbar(__global int *data, t_fractal f)
+__kernel void celtic_mandelbar(__global int *data, t_fractal f, int color)
 {
 	int			iteration;
 	int			x;
@@ -269,12 +233,12 @@ __kernel void celtic_mandelbar(__global int *data, t_fractal f)
 		++iteration;	
 	}
 	if (iteration <  f.max_iteration)
- 	    data[gid] = choose_color(iteration, f.max_iteration, f.color);
+ 	    data[gid] = choose_color(iteration, f.max_iteration, color);
  	else
         data[gid] = 0;
 }
 
-__kernel void celtic_perpendicular(__global int *data, t_fractal f)
+__kernel void celtic_perpendicular(__global int *data, t_fractal f, int color)
 {
 	int			iteration;
 	int			x;
@@ -299,12 +263,13 @@ __kernel void celtic_perpendicular(__global int *data, t_fractal f)
 		++iteration;	
 	}
 	if (iteration <  f.max_iteration)
- 	    data[gid] = choose_color(iteration, f.max_iteration, f.color);
+ 	    data[gid] = choose_color(iteration, f.max_iteration, color);
  	else
         data[gid] = 0;
 }
 
-__kernel void perpendicular_mandelbrot(__global int *data, t_fractal f)
+__kernel void perpendicular_mandelbrot(__global int *data,
+											t_fractal f, int color)
 {
 	int			iteration;
 	int			x;
@@ -329,12 +294,13 @@ __kernel void perpendicular_mandelbrot(__global int *data, t_fractal f)
 		++iteration;	
 	}
 	if (iteration <  f.max_iteration)
- 	    data[gid] = choose_color(iteration, f.max_iteration, f.color);
+ 	    data[gid] = choose_color(iteration, f.max_iteration, color);
  	else
         data[gid] = 0;
 }
 
-__kernel void perpendicular_burning_ship(__global int *data, t_fractal f)
+__kernel void perpendicular_burning_ship(__global int *data,
+											t_fractal f, int color)
 {
 	int			iteration;
 	int			x;
@@ -359,12 +325,12 @@ __kernel void perpendicular_burning_ship(__global int *data, t_fractal f)
 		++iteration;	
 	}
 	if (iteration <  f.max_iteration)
- 	    data[gid] = choose_color(iteration, f.max_iteration, f.color);
+ 	    data[gid] = choose_color(iteration, f.max_iteration, color);
  	else
         data[gid] = 0;
 }
 
-__kernel void perpendicular_buffalo(__global int *data, t_fractal f)
+__kernel void perpendicular_buffalo(__global int *data, t_fractal f, int color)
 {
 	int			iteration;
 	int			x;
@@ -389,7 +355,7 @@ __kernel void perpendicular_buffalo(__global int *data, t_fractal f)
 		++iteration;	
 	}
 	if (iteration <  f.max_iteration)
- 	    data[gid] = choose_color(iteration, f.max_iteration, f.color);
+ 	    data[gid] = choose_color(iteration, f.max_iteration, color);
  	else
         data[gid] = 0;
 }
