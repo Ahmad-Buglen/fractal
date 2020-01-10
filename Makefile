@@ -10,71 +10,34 @@
 #                                                                              #
 # **************************************************************************** #
 
-NAME = fractal
-
-CC = gcc
-FLAGS = -Wall -Werror -Wextra
-LIBRARIES = -lmlx -lm -lft\
-	-L$(LIBFT_DIRECTORY) -L$(MINILIBX_DIRECTORY)\
-	-framework OpenGL -framework AppKit -framework OpenCL
-INCLUDES = -I$(HEADERS_DIRECTORY) -I$(LIBFT_HEADERS) -I$(MINILIBX_HEADERS)
-
-LIBFT = $(LIBFT_DIRECTORY)libft.a
-LIBFT_DIRECTORY = ./libft/
-LIBFT_HEADERS = $(LIBFT_DIRECTORY)
-
-MINILIBX = $(MINILIBX_DIRECTORY)libmlx.a
-MINILIBX_DIRECTORY = ./mlx/
-MINILIBX_HEADERS = $(MINILIBX_DIRECTORY)
-
-HEADERS_LIST = \
-	fractal.h\
-	cl.h
-HEADERS_DIRECTORY = ./includes/
-HEADERS = $(addprefix $(HEADERS_DIRECTORY), $(HEADERS_LIST))
-
-SOURCES_DIRECTORY = ./sources/
-SOURCES_LIST = \
-	fractal.c\
-	init_cl.c\
-	draw.c\
-	keyboard.c\
-	mouse.c
-SOURCES = $(addprefix $(SOURCES_DIRECTORY), $(SOURCES_LIST))
-
-OBJECTS_DIRECTORY = objects/
-OBJECTS_LIST = $(patsubst %.c, %.o, $(SOURCES_LIST))
-OBJECTS	= $(addprefix $(OBJECTS_DIRECTORY), $(OBJECTS_LIST))
-
 .PHONY: all clean fclean re
 
-all: $(NAME)
+SRC = draw.c keyboard.c init_cl.c mouse.c fractal.c
 
-$(NAME): $(LIBFT) $(MINILIBX) $(OBJECTS_DIRECTORY) $(OBJECTS)
-	@$(CC) $(FLAGS) $(LIBRARIES) $(INCLUDES) $(OBJECTS) -o $(NAME)
+OBJ = $(SRC:.c=.o)
 
-$(OBJECTS_DIRECTORY):
-	@mkdir -p $(OBJECTS_DIRECTORY)
+NAME = fractal
 
-$(OBJECTS_DIRECTORY)%.o : $(SOURCES_DIRECTORY)%.c $(HEADERS)
-	@$(CC) $(FLAGS) -c $(INCLUDES) $< -o $@
+LIB = libft/libft.a
 
-$(LIBFT):
-	@$(MAKE) -sC $(LIBFT_DIRECTORY)
+MLX = ./mlx/libmlx.a
 
-$(MINILIBX):
-	@$(MAKE) -sC $(MINILIBX_DIRECTORY)
+HEADER = ./includes/fractal.h
 
+all: $(LIB) $(NAME)
+
+$(LIB):
+	make -C ./libft
+$(MLX):
+	make -C ./mlx
+$(NAME): $(MLX) $(OBJ) includes/fractal.h
+	gcc -Wall -Wextra -Werror -o $(NAME) -I $(HEADER) $(LIB) $(MLX) -lmlx -framework OpenGL -framework AppKit -framework OpenCL $(OBJ)
+%.o: sources/%.c $(HEADER)
+	gcc -c $<
 clean:
-	@$(MAKE) -sC $(LIBFT_DIRECTORY) clean
-	@$(MAKE) -sC $(MINILIBX_DIRECTORY) clean
-	@rm -rf $(OBJECTS_DIRECTORY)
-
+	make clean -C ./libft
+	rm -rf $(OBJ)
 fclean: clean
-	@rm -f $(MINILIBX)
-	@rm -f $(LIBFT)
-	@rm -f $(NAME)
-
-re:
-	@$(MAKE) fclean
-	@$(MAKE) all
+	make fclean -C ./libft
+	rm -rf $(NAME)
+re: fclean all

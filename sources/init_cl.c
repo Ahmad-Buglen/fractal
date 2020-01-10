@@ -10,7 +10,7 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "fractal.h"
+#include "../includes/fractal.h"
 
 int 	ft_close(void *const s)
 {

@@ -10,7 +10,7 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "fractal.h"
+#include "../includes/fractal.h"
 
 void	execute_kernel(t_screen *const s)
 {
