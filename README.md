@@ -3,7 +3,9 @@
 
 ### Compiling
 Compile only on **OS X**
+
 For acceleration the calculations were performed in Open CL(GPU)
+
 Use `make` and run with `./fractol`
 #### Mandelbrot set
 ![Example](https://github.com/LailaShellie/gifs/blob/master/gif_fractol/Mand.gif)
